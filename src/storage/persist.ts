@@ -51,7 +51,7 @@ export function saveCharacter(c: Character): void {
 }
 
 export function loadSettings(): AppSettings {
-  return readJson<AppSettings>(STORAGE_KEYS.settings, defaultSettings);
+  return { ...defaultSettings, ...readJson<Partial<AppSettings>>(STORAGE_KEYS.settings, defaultSettings) };
 }
 
 export function saveSettings(s: AppSettings): void {

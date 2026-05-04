@@ -148,6 +148,9 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
     setDeadlandsEnabled(enabled: boolean) {
       set('settings', 'deadlandsEnabled', enabled);
     },
+    setFreeSkillPoints(points: number) {
+      set('settings', 'freeSkillPoints', Math.max(0, points));
+    },
     resetCharacter() {
       set('character', { ...defaultCharacter });
       set('portrait', null);

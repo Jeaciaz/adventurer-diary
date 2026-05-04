@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
-import { Plus, Trash2 } from 'lucide-solid';
+import { Coins, Crosshair, Dumbbell, Gauge, Package, Plus, Ruler, Shield, Target, Trash2 } from 'lucide-solid';
 import { useStore } from '../store/store';
 import { EQUIPMENT_OTHER, EQUIPMENT_OTHER_BY_ID, WEAPONS, WEAPON_BY_ID } from '../data';
 import {
@@ -301,26 +301,26 @@ function ItemStats(props: { item: AnyItem }): JSX.Element {
   return (
     <dl class="grid grid-cols-2 overflow-hidden rounded-lg border border-base-300 text-sm sm:grid-cols-3">
       <Stat label="Категория" value={categoryLabel(item())} />
-      <Stat label="Цена" value={`$${item().cost}`} />
-      <Stat label="Вес" value={`${item().weight} кг`} />
+      <Stat label="Цена" value={`$${item().cost}`} icon={<Coins size={13} />} />
+      <Stat label="Вес" value={`${item().weight} кг`} icon={<Package size={13} />} />
       <Show when={item().minStrength}>
-        {(v) => <Stat label="Требуемая мощь" value={v()} />}
+        {(v) => <Stat label="Требуемая мощь" value={v()} icon={<Dumbbell size={13} />} />}
       </Show>
       <Show when={weapon()}>
         <Show when={weapon()!.damage}>
-          {(v) => <Stat label="Урон" value={v()} />}
+          {(v) => <Stat label="Урон" value={v()} icon={<Crosshair size={13} />} />}
         </Show>
         <Show when={weapon()!.range}>
-          {(v) => <Stat label="Дистанция" value={v()} />}
+          {(v) => <Stat label="Дистанция" value={v()} icon={<Ruler size={13} />} />}
         </Show>
         <Show when={weapon()!.rateOfFire}>
-          {(v) => <Stat label="СКС" value={String(v())} />}
+          {(v) => <Stat label="Скорострельность" value={String(v())} icon={<Gauge size={13} />} />}
         </Show>
         <Show when={weapon()!.armorPiercing != null}>
-          <Stat label="ББ" value={String(weapon()!.armorPiercing ?? 0)} />
+          <Stat label="ББ" value={String(weapon()!.armorPiercing ?? 0)} icon={<Target size={13} />} />
         </Show>
         <Show when={weapon()!.shots != null}>
-          <Stat label="Выстрелы" value={String(weapon()!.shots ?? 0)} />
+          <Stat label="Выстрелы" value={String(weapon()!.shots ?? 0)} icon={<Crosshair size={13} />} />
         </Show>
         <Show when={weapon()!.reload}>
           {(v) => <Stat label="Перезарядка" value={v()} />}
@@ -331,7 +331,7 @@ function ItemStats(props: { item: AnyItem }): JSX.Element {
       </Show>
       <Show when={other()}>
         <Show when={other()!.armor != null}>
-          <Stat label="Броня" value={String(other()!.armor ?? 0)} />
+          <Stat label="Броня" value={String(other()!.armor ?? 0)} icon={<Shield size={13} />} />
         </Show>
         <Show when={other()!.covers}>
           {(v) => <Stat label="Покрытие" value={v()} />}
@@ -344,11 +344,14 @@ function ItemStats(props: { item: AnyItem }): JSX.Element {
   );
 }
 
-function Stat(props: { label: string; value: string; wide?: boolean }): JSX.Element {
+function Stat(props: { label: string; value: string; icon?: JSX.Element; wide?: boolean }): JSX.Element {
   return (
-    <div class={[props.wide ? 'col-span-2 sm:col-span-3' : '', 'border-base-300 p-2 [&:not(:last-child)]:border-r'].join(' ')}>
+    <div class={[props.wide ? 'col-span-2 sm:col-span-3' : '', 'border-base-300 px-2 py-1.5 [&:not(:last-child)]:border-r'].join(' ')}>
       <dt class="text-[10px] uppercase tracking-wide text-base-content/50">{props.label}</dt>
-      <dd class="mt-0.5 break-words font-medium">{props.value}</dd>
+      <dd class="flex items-center gap-1 break-words font-medium leading-tight">
+        {props.icon}
+        <span>{props.value}</span>
+      </dd>
     </div>
   );
 }
@@ -386,8 +389,7 @@ function ItemRow(props: {
           </Show>
         </div>
         <div class="text-xs opacity-60">
-          {isWeapon(props.item) && props.item.damage ? `${props.item.damage} · ` : ''}
-          {props.item.weight} кг · ${props.item.cost}
+          <EquipmentSubtitle item={props.item} />
         </div>
       </button>
       <Button
@@ -406,5 +408,26 @@ function ItemRow(props: {
         <Plus size={14} />
       </Button>
     </li>
+  );
+}
+
+function EquipmentSubtitle(props: { item: AnyItem }): JSX.Element {
+  return (
+    <span class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-base-content/60">
+      <Show when={isWeapon(props.item) && props.item.damage}>
+        <span class="inline-flex items-center gap-1">
+          <Crosshair size={12} aria-hidden="true" />
+          {(props.item as Weapon).damage}
+        </span>
+      </Show>
+      <span class="inline-flex items-center gap-1">
+        <Package size={12} aria-hidden="true" />
+        {props.item.weight} кг
+      </span>
+      <span class="inline-flex items-center gap-1">
+        <Coins size={12} aria-hidden="true" />
+        ${props.item.cost}
+      </span>
+    </span>
   );
 }

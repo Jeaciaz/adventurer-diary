@@ -1,10 +1,10 @@
 import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
 import { Plus, Trash2 } from 'lucide-solid';
 import { useStore } from '../store/store';
-import { ATTRIBUTES, EDGES, EDGE_BY_ID, SKILL_BY_ID } from '../data';
-import { edgeCap } from '../store/selectors';
+import { ATTRIBUTES, BASE_SKILL_IDS, EDGES, EDGE_BY_ID, SKILL_BY_ID } from '../data';
+import { dieIndex, edgeCap, rankFromAdvances } from '../store/selectors';
 import { Badge, Button, Card, Collapsible, Counter, Drawer, Input } from '../ui';
-import type { Edge, EdgeCategory, EdgeRequirement, Rank } from '../types';
+import type { Character, DieStepOrNone, Edge, EdgeCategory, EdgeRequirement, Rank } from '../types';
 
 const CATEGORY_RU: Record<EdgeCategory, string> = {
   background: 'Предыстория',
@@ -16,7 +16,7 @@ const CATEGORY_RU: Record<EdgeCategory, string> = {
   mystic: 'Мистические',
   legendary: 'Легендарные',
   weird: 'Сверхъестественные',
-  harrowed: 'Меченый (DL)',
+  harrowed: 'Меченые (DL)',
   huckster: 'Картёжник (DL)',
   blessed: 'Благословенный (DL)',
   shaman: 'Шаман (DL)',
@@ -49,6 +49,8 @@ const RANK_RU: Record<Rank, string> = {
   legendary: 'Легенда',
 };
 
+const RANK_ORDER: Rank[] = ['novice', 'seasoned', 'veteran', 'heroic', 'legendary'];
+
 function reqLabel(r: EdgeRequirement): string {
   switch (r.type) {
     case 'rank':
@@ -64,6 +66,42 @@ function reqLabel(r: EdgeRequirement): string {
     case 'other':
       return r.description;
   }
+}
+
+function rankMeets(current: Rank, required: Rank): boolean {
+  return RANK_ORDER.indexOf(current) >= RANK_ORDER.indexOf(required);
+}
+
+function skillDie(c: Character, skillId: string): DieStepOrNone {
+  const builtin = SKILL_BY_ID.get(skillId);
+  if (builtin) return c.skills[skillId] ?? (BASE_SKILL_IDS.includes(skillId) ? 'd4' : null);
+  return c.customSkills.find((skill) => skill.id === skillId)?.die ?? null;
+}
+
+function reqMet(r: EdgeRequirement, c: Character): boolean | null {
+  switch (r.type) {
+    case 'rank':
+      return rankMeets(rankFromAdvances(c.advancesUsed).rank, r.value);
+    case 'attribute':
+      return dieIndex(c.attributes[r.attribute]) >= dieIndex(r.minDie);
+    case 'skill':
+      return dieIndex(skillDie(c, r.skillId)) >= dieIndex(r.minDie);
+    case 'edge':
+      return c.edges.some((edge) => edge.edgeId === r.edgeId);
+    case 'wildCard':
+      return true;
+    case 'other':
+      return null;
+  }
+}
+
+function RequirementBadge(props: { requirement: EdgeRequirement; character: Character }): JSX.Element {
+  const met = (): boolean | null => reqMet(props.requirement, props.character);
+  return (
+    <Badge variant={met() === false ? 'error' : 'ghost'} outline={met() === false}>
+      {reqLabel(props.requirement)}
+    </Badge>
+  );
 }
 
 export function EdgesTab(): JSX.Element {
@@ -176,7 +214,7 @@ export function EdgesTab(): JSX.Element {
                       </div>
                       <div class="flex flex-wrap gap-1">
                         <For each={e.requirements}>
-                          {(r) => <Badge variant="ghost">{reqLabel(r)}</Badge>}
+                          {(r) => <RequirementBadge requirement={r} character={c()} />}
                         </For>
                       </div>
                     </button>
@@ -215,7 +253,7 @@ export function EdgesTab(): JSX.Element {
                   </Badge>
                 </Show>
                 <For each={e().requirements}>
-                  {(r) => <Badge variant="ghost">{reqLabel(r)}</Badge>}
+                  {(r) => <RequirementBadge requirement={r} character={c()} />}
                 </For>
               </div>
               <p class="whitespace-pre-line text-sm leading-relaxed">{e().description}</p>

@@ -1,5 +1,5 @@
 import { type JSX } from 'solid-js';
-import { Drawer, Toggle, Button, FileUpload, pushToast } from '../ui';
+import { Drawer, Toggle, Button, FileUpload, NumberStepper, pushToast } from '../ui';
 import { useStore } from '../store/store';
 import { exportCharacterJson, importCharacterJson } from '../storage/persist';
 
@@ -48,6 +48,20 @@ export function SettingsDrawer(props: { open: boolean; onClose: () => void }): J
           <Toggle
             checked={state.settings.deadlandsEnabled}
             onChange={(v) => actions.setDeadlandsEnabled(v)}
+          />
+        </div>
+
+        <div class="divider my-1" />
+
+        <div class="flex flex-col gap-2">
+          <div>
+            <div class="text-sm font-semibold">Свободные очки навыков</div>
+            <div class="text-xs opacity-70">Добавляются к лимиту очков навыков.</div>
+          </div>
+          <NumberStepper
+            value={state.settings.freeSkillPoints ?? 0}
+            onChange={(v) => actions.setFreeSkillPoints(v)}
+            min={0}
           />
         </div>
 

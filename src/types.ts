@@ -172,8 +172,6 @@ export interface DerivedStats {
   pace: number;
   parry: number;
   toughness: number;
-  load: number;
-  size: number;
 }
 
 export interface Character {
@@ -197,6 +195,7 @@ export interface Character {
 
 export interface AppSettings {
   deadlandsEnabled: boolean;
+  freeSkillPoints: number;
 }
 
 export const CURRENT_SCHEMA_VERSION = 1;

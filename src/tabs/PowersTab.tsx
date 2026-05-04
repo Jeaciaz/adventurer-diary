@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
-import { Pin, PinOff, Plus, Trash2 } from 'lucide-solid';
+import { Clock, Crosshair, Pin, PinOff, Plus, Ruler, Trash2, Zap } from 'lucide-solid';
 import { useStore } from '../store/store';
 import { ARCANE_BACKGROUNDS, ARCANE_BACKGROUND_BY_ID, POWERS, POWER_BY_ID } from '../data';
 import { rankFromAdvances } from '../store/selectors';
@@ -8,7 +8,6 @@ import {
   Button,
   Card,
   Drawer,
-  Input,
   NumberStepper,
   Select,
   Toggle,
@@ -24,15 +23,37 @@ const RANK_RU: Record<Rank, string> = {
 };
 
 const RANK_ORDER: Rank[] = ['novice', 'seasoned', 'veteran', 'heroic', 'legendary'];
+const ATTACK_POWER_STATS: Record<string, { damage: string; sort: number }> = {
+  banish: { damage: 'инертность', sort: 0 },
+  izgnanie: { damage: '1 ранение/подъём', sort: 0 },
+  oglushenie: { damage: 'оглушение', sort: 0 },
+  'ammo-whammy': { damage: '+1 кость урона', sort: 1 },
+  sokrushenie: { damage: '+2/+4 урона', sort: 2 },
+  'razrushitelnoe-pole': { damage: '2d4', sort: 5 },
+  smerch: { damage: '2d4', sort: 5 },
+  potok: { damage: '2d6', sort: 7 },
+  strela: { damage: '2d6', sort: 7 },
+  vzryv: { damage: '2d6', sort: 7 },
+};
 
 function rankLeq(a: Rank, b: Rank): boolean {
   return RANK_ORDER.indexOf(a) <= RANK_ORDER.indexOf(b);
 }
 
+function isDamagePower(p: Power): boolean {
+  return ATTACK_POWER_STATS[p.id] != null;
+}
+
+function attackPowerSort(a: Power, b: Power): number {
+  return (
+    (ATTACK_POWER_STATS[a.id]?.sort ?? 0) - (ATTACK_POWER_STATS[b.id]?.sort ?? 0) ||
+    a.ru.localeCompare(b.ru, 'ru')
+  );
+}
+
 export function PowersTab(): JSX.Element {
   const { state, actions } = useStore();
   const c = (): typeof state.character => state.character;
-  const [search, setSearch] = createSignal('');
   const [drawerPower, setDrawerPower] = createSignal<Power | null>(null);
 
   const ab = createMemo(() =>
@@ -50,18 +71,24 @@ export function PowersTab(): JSX.Element {
   });
 
   const visiblePowers = createMemo(() => {
-    const q = search().toLowerCase().trim();
     const taken = new Set(c().powers.map((p) => p.powerId));
     let list = POWERS.filter(
       (p) =>
         (state.settings.deadlandsEnabled || p.source !== 'dl') &&
-        !taken.has(p.id) &&
-        (!q || p.ru.toLowerCase().includes(q)),
+        !taken.has(p.id),
     );
     if (c().abFilterEnabled && allowedSet()) {
       list = list.filter((p) => allowedSet()!.has(p.id));
     }
     return list;
+  });
+
+  const groupedPowers = createMemo(() => {
+    const powers = visiblePowers();
+    return [
+      { title: 'Атакующие силы', items: powers.filter(isDamagePower).sort(attackPowerSort) },
+      { title: 'Прочие силы', items: powers.filter((p) => !isDamagePower(p)) },
+    ].filter((group) => group.items.length > 0);
   });
 
   const selectedSorted = createMemo(() => {
@@ -131,10 +158,7 @@ export function PowersTab(): JSX.Element {
                         </Badge>
                       </Show>
                     </div>
-                    <div class="text-xs opacity-60">
-                      {RANK_RU[power.rank]} · ПС {power.powerPoints} · {power.range} ·{' '}
-                      {power.duration}
-                    </div>
+                    <PowerSubtitle power={power} showRank />
                   </button>
                   <Button
                     size="xs"
@@ -161,69 +185,72 @@ export function PowersTab(): JSX.Element {
         </Show>
       </Card>
 
-      <Input
-        placeholder="Поиск по силам…"
-        value={search()}
-        onInput={(e) => setSearch(e.currentTarget.value)}
-      />
-
       <Card>
         <div class="text-xs uppercase opacity-60">Доступные ({visiblePowers().length})</div>
-        <ul class="mt-2 flex flex-col gap-1">
-          <For each={visiblePowers()}>
-            {(p) => {
-              const rankWarn = !rankLeq(p.rank, charRank());
-              const abWarn =
-                c().abFilterEnabled && allowedSet() != null && !allowedSet()!.has(p.id);
-              return (
-                <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
-                  <button
-                    type="button"
-                    class="flex flex-1 flex-col items-start gap-0.5 text-left"
-                    onClick={() => setDrawerPower(p)}
-                  >
-                    <div class="flex items-center gap-2 text-sm font-medium">
-                      <span>{p.ru}</span>
-                      <Show when={p.source === 'dl'}>
-                        <Badge variant="info" outline>
-                          DL
-                        </Badge>
-                      </Show>
-                      <Show when={rankWarn}>
-                        <Badge variant="warning" outline>
-                          ранг {RANK_RU[p.rank]}
-                        </Badge>
-                      </Show>
-                      <Show when={abWarn}>
-                        <Badge variant="warning" outline>
-                          вне дара
-                        </Badge>
-                      </Show>
-                    </div>
-                    <div class="text-xs opacity-60">
-                      ПС {p.powerPoints} · {p.range} · {p.duration}
-                    </div>
-                  </button>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    square
-                    aria-label="Добавить"
-                    onClick={() =>
-                      actions.addPower({
-                        powerId: p.id,
-                        pinned: false,
-                        order: c().powers.length,
-                      })
-                    }
-                  >
-                    <Plus size={14} />
-                  </Button>
-                </li>
-              );
-            }}
+        <div class="mt-2 flex flex-col gap-3">
+          <For each={groupedPowers()}>
+            {(group) => (
+              <section>
+                <div class="divider my-1 text-xs uppercase tracking-wide text-base-content/60">
+                  {group.title} ({group.items.length})
+                </div>
+                <ul class="flex flex-col gap-1">
+                  <For each={group.items}>
+                    {(p) => {
+                      const rankWarn = !rankLeq(p.rank, charRank());
+                      const abWarn =
+                        c().abFilterEnabled && allowedSet() != null && !allowedSet()!.has(p.id);
+                      return (
+                        <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
+                          <button
+                            type="button"
+                            class="flex flex-1 flex-col items-start gap-0.5 text-left"
+                            onClick={() => setDrawerPower(p)}
+                          >
+                            <div class="flex items-center gap-2 text-sm font-medium">
+                              <span>{p.ru}</span>
+                              <Show when={p.source === 'dl'}>
+                                <Badge variant="info" outline>
+                                  DL
+                                </Badge>
+                              </Show>
+                              <Show when={rankWarn}>
+                                <Badge variant="warning" outline>
+                                  ранг {RANK_RU[p.rank]}
+                                </Badge>
+                              </Show>
+                              <Show when={abWarn}>
+                                <Badge variant="warning" outline>
+                                  вне дара
+                                </Badge>
+                              </Show>
+                            </div>
+                            <PowerSubtitle power={p} />
+                          </button>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            square
+                            aria-label="Добавить"
+                            onClick={() =>
+                              actions.addPower({
+                                powerId: p.id,
+                                pinned: false,
+                                order: c().powers.length,
+                              })
+                            }
+                          >
+                            <Plus size={14} />
+                          </Button>
+                        </li>
+                      );
+                    }}
+                  </For>
+                </ul>
+              </section>
+            )}
           </For>
-        </ul>
+        </div>
       </Card>
 
       <Drawer
@@ -235,18 +262,13 @@ export function PowersTab(): JSX.Element {
           {(p) => (
             <div class="flex flex-col gap-3">
               <div class="flex flex-wrap gap-1">
-                <Badge variant="primary" outline>
-                  {RANK_RU[p().rank]}
-                </Badge>
                 <Show when={p().source === 'dl'}>
                   <Badge variant="info" outline>
                     DL
                   </Badge>
                 </Show>
-                <Badge variant="ghost">ПС {p().powerPoints}</Badge>
-                <Badge variant="ghost">{p().range}</Badge>
-                <Badge variant="ghost">{p().duration}</Badge>
               </div>
+              <PowerStats power={p()} />
               <p class="text-sm text-base-content/80">{p().shortDescription}</p>
               <p class="whitespace-pre-line text-sm leading-relaxed">{p().fullDescription}</p>
               <Show when={p().translationNote}>
@@ -284,6 +306,59 @@ export function PowersTab(): JSX.Element {
           )}
         </Show>
       </Drawer>
+    </div>
+  );
+}
+
+function PowerSubtitle(props: { power: Power; showRank?: boolean }): JSX.Element {
+  return (
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-base-content/60">
+      <Show when={props.showRank}>
+        <span>{RANK_RU[props.power.rank]}</span>
+      </Show>
+      <Show when={ATTACK_POWER_STATS[props.power.id]?.damage}>
+        {(damage) => (
+          <span class="inline-flex items-center gap-1">
+            <Crosshair size={12} aria-hidden="true" />
+            {damage()}
+          </span>
+        )}
+      </Show>
+      <span class="inline-flex items-center gap-1">
+        <Zap size={12} aria-hidden="true" />
+        {props.power.powerPoints}
+      </span>
+      <span class="inline-flex items-center gap-1">
+        <Ruler size={12} aria-hidden="true" />
+        {props.power.range}
+      </span>
+      <span class="inline-flex items-center gap-1">
+        <Clock size={12} aria-hidden="true" />
+        {props.power.duration}
+      </span>
+    </div>
+  );
+}
+
+function PowerStats(props: { power: Power }): JSX.Element {
+  return (
+    <dl class="grid grid-cols-2 overflow-hidden rounded-lg border border-base-300 text-sm sm:grid-cols-4">
+      <PowerStat label="Ранг" value={RANK_RU[props.power.rank]} />
+      <PowerStat label="Пункты силы" value={props.power.powerPoints} icon={<Zap size={13} />} />
+      <PowerStat label="Дистанция" value={props.power.range} icon={<Ruler size={13} />} />
+      <PowerStat label="Длительность" value={props.power.duration} icon={<Clock size={13} />} />
+    </dl>
+  );
+}
+
+function PowerStat(props: { label: string; value: string; icon?: JSX.Element }): JSX.Element {
+  return (
+    <div class="border-base-300 px-2 py-1.5 [&:not(:last-child)]:border-r">
+      <dt class="text-[10px] uppercase tracking-wide text-base-content/50">{props.label}</dt>
+      <dd class="flex items-center gap-1 break-words font-medium leading-tight">
+        {props.icon}
+        <span>{props.value}</span>
+      </dd>
     </div>
   );
 }

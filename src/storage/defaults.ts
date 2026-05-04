@@ -2,6 +2,7 @@ import type { AppSettings, Character } from '../types';
 
 export const defaultSettings: AppSettings = {
   deadlandsEnabled: true,
+  freeSkillPoints: 0,
 };
 
 export const defaultCharacter: Character = {
@@ -35,8 +36,6 @@ export const defaultCharacter: Character = {
     pace: 6,
     parry: 2,
     toughness: 4,
-    load: 0,
-    size: 0,
   },
   abFilterEnabled: true,
 };

@@ -58,6 +58,7 @@ export function StatsSkillsTab(): JSX.Element {
 
   const skillSpent = createMemo(() => skillPointsSpent(c(), BASE_SKILL_IDS, linkedAttrFor));
   const attrSpent = createMemo(() => attrPointsSpent(c()));
+  const currentSkillCap = createMemo(() => skillCap(c(), state.settings.freeSkillPoints ?? 0));
   const hindrancePoints = createMemo(() => hindrancePointsEarned(c(), HINDRANCE_BY_ID));
   const free = createMemo(() =>
     computeFreePoints({
@@ -65,6 +66,7 @@ export function StatsSkillsTab(): JSX.Element {
       hindrancePoints: hindrancePoints(),
       skillSpent: skillSpent(),
       attrSpent: attrSpent(),
+      freeSkillPoints: state.settings.freeSkillPoints ?? 0,
     }),
   );
 
@@ -82,8 +84,8 @@ export function StatsSkillsTab(): JSX.Element {
         <Counter
           label="Навыки"
           value={skillSpent()}
-          cap={skillCap(c())}
-          warn={skillSpent() > skillCap(c()) && free() < 0}
+          cap={currentSkillCap()}
+          warn={skillSpent() > currentSkillCap() && free() < 0}
         />
         <Counter label="Свободные" value={free()} warn={free() < 0} />
       </div>
@@ -262,19 +264,6 @@ function DerivedStatsSection(): JSX.Element {
         value={ds().toughness}
         onChange={(v) => actions.setDerived('toughness', v)}
         min={0}
-      />
-      <NumberStepper
-        label="Нагрузка"
-        value={ds().load}
-        onChange={(v) => actions.setDerived('load', v)}
-        min={0}
-      />
-      <NumberStepper
-        label="Размер"
-        value={ds().size}
-        onChange={(v) => actions.setDerived('size', v)}
-        min={-4}
-        max={4}
       />
     </Card>
   );

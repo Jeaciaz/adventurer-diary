@@ -1,4 +1,4 @@
-import { Show, type JSX } from 'solid-js';
+import { createEffect, createSignal, onCleanup, Show, type JSX } from 'solid-js';
 import { X } from 'lucide-solid';
 
 export interface DrawerProps {
@@ -8,11 +8,53 @@ export interface DrawerProps {
   children: JSX.Element;
 }
 
+const DRAWER_ANIMATION_MS = 250;
+
 export function Drawer(props: DrawerProps): JSX.Element {
+  const [mounted, setMounted] = createSignal(props.open);
+  const [visible, setVisible] = createSignal(false);
+  let closeTimer: ReturnType<typeof setTimeout> | undefined;
+  let openFrame: number | undefined;
+
+  const clearTimers = (): void => {
+    if (closeTimer) clearTimeout(closeTimer);
+    if (openFrame !== undefined) cancelAnimationFrame(openFrame);
+    closeTimer = undefined;
+    openFrame = undefined;
+  };
+
+  const requestClose = (): void => {
+    clearTimers();
+    setVisible(false);
+    closeTimer = setTimeout(() => {
+      props.onClose();
+      setMounted(false);
+    }, DRAWER_ANIMATION_MS);
+  };
+
+  createEffect(() => {
+    clearTimers();
+
+    if (props.open) {
+      setMounted(true);
+      setVisible(false);
+      openFrame = requestAnimationFrame(() => setVisible(true));
+      return;
+    }
+
+    setVisible(false);
+    closeTimer = setTimeout(() => setMounted(false), DRAWER_ANIMATION_MS);
+  });
+
+  onCleanup(clearTimers);
+
   return (
-    <Show when={props.open}>
+    <Show when={mounted()}>
       <div
-        class="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center"
+        class={[
+          'fixed inset-0 z-50 flex items-end transition-opacity duration-[250ms] ease-out sm:items-center sm:justify-center',
+          visible() ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
+        ].join(' ')}
         role="dialog"
         aria-modal="true"
       >
@@ -20,16 +62,21 @@ export function Drawer(props: DrawerProps): JSX.Element {
           type="button"
           class="absolute inset-0 bg-black/60"
           aria-label="Закрыть"
-          onClick={props.onClose}
+          onClick={requestClose}
         />
-        <div class="relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-base-200 sm:max-w-lg sm:rounded-2xl">
+        <div
+          class={[
+            'relative max-h-[85vh] w-full overflow-y-auto rounded-t-2xl bg-base-200 transition duration-[250ms] ease-out sm:max-w-lg sm:rounded-2xl',
+            visible() ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0',
+          ].join(' ')}
+        >
           <div class="sticky top-0 flex items-start justify-between gap-3 border-b border-base-300 bg-base-200/95 px-4 py-3 backdrop-blur">
             <h2 class="text-lg font-semibold">{props.title}</h2>
             <button
               type="button"
               class="btn btn-ghost btn-sm btn-square"
               aria-label="Закрыть"
-              onClick={props.onClose}
+              onClick={requestClose}
             >
               <X size={18} />
             </button>

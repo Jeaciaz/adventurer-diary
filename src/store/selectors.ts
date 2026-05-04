@@ -99,8 +99,8 @@ export function hasAgeHindrance(c: Character): boolean {
   return c.hindrances.some((h) => h.hindranceId === HINDRANCE_AGE_ID);
 }
 
-export function skillCap(c: Character): number {
-  return 12 + (hasAgeHindrance(c) ? 5 : 0);
+export function skillCap(c: Character, freeSkillPoints = 0): number {
+  return 12 + freeSkillPoints + (hasAgeHindrance(c) ? 5 : 0);
 }
 
 export function attrCap(): number {
@@ -108,8 +108,7 @@ export function attrCap(): number {
 }
 
 export function edgeCap(): number {
-  // Human race auto-grants 1 free Novice edge (Разностороннее развитие).
-  return 1;
+  return 2;
 }
 
 /**
@@ -124,10 +123,11 @@ export function computeFreePoints(args: {
   hindrancePoints: { minor: number; major: number };
   skillSpent: number;
   attrSpent: number;
+  freeSkillPoints?: number;
 }): number {
-  const { c, hindrancePoints, skillSpent, attrSpent } = args;
+  const { c, hindrancePoints, skillSpent, attrSpent, freeSkillPoints = 0 } = args;
   const earned = c.advancesUsed * 2 + hindrancePoints.minor + hindrancePoints.major;
-  const skillOver = Math.max(0, skillSpent - skillCap(c));
+  const skillOver = Math.max(0, skillSpent - skillCap(c, freeSkillPoints));
   const attrOver = Math.max(0, attrSpent - attrCap());
   const edgesOver = Math.max(0, c.edges.length - edgeCap());
   return earned - skillOver - attrOver * 2 - edgesOver * 2;
