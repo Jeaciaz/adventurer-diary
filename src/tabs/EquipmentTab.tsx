@@ -10,6 +10,7 @@ import {
   Drawer,
   Input,
   NumberStepper,
+  Toggle,
 } from '../ui';
 import type { EquipmentItem, Weapon } from '../types';
 
@@ -35,10 +36,36 @@ const OTHER_CAT_RU: Record<string, string> = {
   vehicle: 'Транспорт',
 };
 
+const MONEY_DELTAS = [-10, -5, -3, -2, -1, 1, 2, 3, 5, 10];
+
+function damageSortValue(damage?: string): number {
+  if (!damage || damage === '—') return Number.NEGATIVE_INFINITY;
+  const normalized = damage.replace(/[−–]/g, '-');
+  let value = 0;
+
+  for (const match of normalized.matchAll(/(\d*)d(\d+)/gi)) {
+    const count = match[1] ? Number(match[1]) : 1;
+    const sides = Number(match[2]);
+    value += count * ((sides + 1) / 2);
+  }
+
+  const withoutDice = normalized.replace(/\d*d\d+/gi, '');
+  for (const match of withoutDice.matchAll(/[+-]\d+/g)) {
+    value += Number(match[0]);
+  }
+
+  return value;
+}
+
+function compareWeaponDamage(a: Weapon, b: Weapon): number {
+  return damageSortValue(a.damage) - damageSortValue(b.damage) || a.cost - b.cost || a.ru.localeCompare(b.ru, 'ru');
+}
+
 export function EquipmentTab(): JSX.Element {
   const { state, actions } = useStore();
   const c = (): typeof state.character => state.character;
   const [search, setSearch] = createSignal('');
+  const [onlyDeadlands, setOnlyDeadlands] = createSignal(false);
   const [drawerItem, setDrawerItem] = createSignal<AnyItem | null>(null);
 
   const dlOn = (): boolean => state.settings.deadlandsEnabled;
@@ -46,14 +73,22 @@ export function EquipmentTab(): JSX.Element {
   const weaponsVisible = createMemo<AnyItem[]>(() => {
     const q = search().toLowerCase().trim();
     return WEAPONS.filter(
-      (w) => (dlOn() || w.source !== 'dl') && (!q || w.ru.toLowerCase().includes(q)),
-    ).map((w) => ({ ...w, _kind: 'weapon' as const }));
+      (w) =>
+        (dlOn() || w.source !== 'dl') &&
+        (!onlyDeadlands() || w.source === 'dl') &&
+        (!q || w.ru.toLowerCase().includes(q)),
+    )
+      .map((w) => ({ ...w, _kind: 'weapon' as const }))
+      .sort(compareWeaponDamage);
   });
 
   const otherVisible = createMemo<AnyItem[]>(() => {
     const q = search().toLowerCase().trim();
     return EQUIPMENT_OTHER.filter(
-      (e) => (dlOn() || e.source !== 'dl') && (!q || e.ru.toLowerCase().includes(q)),
+      (e) =>
+        (dlOn() || e.source !== 'dl') &&
+        (!onlyDeadlands() || e.source === 'dl') &&
+        (!q || e.ru.toLowerCase().includes(q)),
     ).map((e) => ({ ...e, _kind: 'other' as const }));
   });
 
@@ -79,15 +114,9 @@ export function EquipmentTab(): JSX.Element {
 
   return (
     <div class="flex flex-col gap-4">
-      <Card class="flex items-end gap-3">
-        <NumberStepper
-          label="Деньги ($)"
-          value={c().money}
-          onChange={(v) => actions.setMoney(v)}
-          step={5}
-          min={0}
-        />
-      </Card>
+      <div class="self-start rounded-xl border border-base-300 bg-base-200 p-2">
+        <MoneyControl value={c().money} onChange={actions.setMoney} />
+      </div>
 
       <Card>
         <div class="text-xs uppercase opacity-60">Выбранное</div>
@@ -152,6 +181,8 @@ export function EquipmentTab(): JSX.Element {
         onInput={(e) => setSearch(e.currentTarget.value)}
       />
 
+      <Toggle checked={onlyDeadlands()} onChange={setOnlyDeadlands} label="Только Deadlands" />
+
       <Collapsible title={`Оружие (${weaponsVisible().length})`} defaultOpen={false}>
         <For each={weaponsByCategory()}>
           {([cat, items]) => (
@@ -183,43 +214,21 @@ export function EquipmentTab(): JSX.Element {
       >
         <Show when={drawerItem()}>
           {(it) => (
-            <div class="flex flex-col gap-3">
-              <div class="flex flex-wrap gap-1">
-                <Show when={it().source === 'dl'}>
+              <div class="flex flex-col gap-3">
+                <div class="flex flex-wrap gap-1">
+                  <Show when={it().source === 'dl'}>
                   <Badge variant="info" outline>
                     DL
                   </Badge>
                 </Show>
                 <Show when={it().isWeirdWest}>
                   <Badge variant="warning" outline>
-                    Weird West
-                  </Badge>
-                </Show>
-                <Badge variant="ghost">${it().cost}</Badge>
-                <Badge variant="ghost">{it().weight} кг</Badge>
-                <Show when={it().minStrength}>
-                  <Badge variant="ghost">сила {it().minStrength}</Badge>
-                </Show>
-                <Show when={isWeapon(it()) && (it() as Weapon).damage}>
-                  <Badge variant="ghost">урон {(it() as Weapon).damage}</Badge>
-                </Show>
-                <Show when={isWeapon(it()) && (it() as Weapon).range}>
-                  <Badge variant="ghost">дист. {(it() as Weapon).range}</Badge>
-                </Show>
-                <Show when={isWeapon(it()) && (it() as Weapon).rateOfFire}>
-                  <Badge variant="ghost">скс {(it() as Weapon).rateOfFire}</Badge>
-                </Show>
-                <Show when={isWeapon(it()) && ((it() as Weapon).armorPiercing ?? 0) > 0}>
-                  <Badge variant="ghost">бб {(it() as Weapon).armorPiercing}</Badge>
-                </Show>
-                <Show when={!isWeapon(it()) && (it() as EquipmentItem).armor}>
-                  <Badge variant="ghost">броня {(it() as EquipmentItem).armor}</Badge>
-                </Show>
-              </div>
+                      Weird West
+                    </Badge>
+                  </Show>
+                </div>
+              <ItemStats item={it()} />
               <p class="whitespace-pre-line text-sm leading-relaxed">{it().description}</p>
-              <Show when={!isWeapon(it()) && (it() as EquipmentItem).notes}>
-                <p class="text-xs italic opacity-70">{(it() as EquipmentItem).notes}</p>
-              </Show>
               <Button
                 variant="primary"
                 onClick={() => {
@@ -239,6 +248,116 @@ export function EquipmentTab(): JSX.Element {
       </Drawer>
     </div>
   );
+}
+
+function MoneyControl(props: { value: number; onChange: (v: number) => void }): JSX.Element {
+  const setMoney = (value: number): void => props.onChange(Math.max(0, value));
+  return (
+    <div class="form-control max-w-full">
+      <span class="label-text mb-1 text-sm">Деньги ($)</span>
+      <div class="max-w-full overflow-x-auto">
+        <div class="join min-w-max border border-base-300 rounded-lg">
+          <For each={MONEY_DELTAS}>
+            {(delta) => (
+              <>
+                <Show when={delta === 1}>
+                  <input
+                    type="number"
+                    class="input input-xs join-item w-14 border-y-0 border-x border-base-300 text-center focus:outline-none"
+                    value={props.value}
+                    onInput={(e) => {
+                      const n = Number(e.currentTarget.value);
+                      if (Number.isFinite(n)) setMoney(n);
+                    }}
+                  />
+                </Show>
+                <button
+                  type="button"
+                  class="btn btn-ghost btn-xs join-item border-0 px-2"
+                  onClick={() => setMoney(props.value + delta)}
+                >
+                  {delta === -1 ? '-': delta === 1 ? '+' : delta > 0 ? `+${delta}` : delta}
+                </button>
+              </>
+            )}
+          </For>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ItemStats(props: { item: AnyItem }): JSX.Element {
+  const item = (): AnyItem => props.item;
+  const weapon = (): (Weapon & { _kind: 'weapon' }) | null => {
+    const current = item();
+    return isWeapon(current) ? current : null;
+  };
+  const other = (): (EquipmentItem & { _kind: 'other' }) | null => {
+    const current = item();
+    return isWeapon(current) ? null : (current as EquipmentItem & { _kind: 'other' });
+  };
+
+  return (
+    <dl class="grid grid-cols-2 overflow-hidden rounded-lg border border-base-300 text-sm sm:grid-cols-3">
+      <Stat label="Категория" value={categoryLabel(item())} />
+      <Stat label="Цена" value={`$${item().cost}`} />
+      <Stat label="Вес" value={`${item().weight} кг`} />
+      <Show when={item().minStrength}>
+        {(v) => <Stat label="Требуемая мощь" value={v()} />}
+      </Show>
+      <Show when={weapon()}>
+        <Show when={weapon()!.damage}>
+          {(v) => <Stat label="Урон" value={v()} />}
+        </Show>
+        <Show when={weapon()!.range}>
+          {(v) => <Stat label="Дистанция" value={v()} />}
+        </Show>
+        <Show when={weapon()!.rateOfFire}>
+          {(v) => <Stat label="СКС" value={String(v())} />}
+        </Show>
+        <Show when={weapon()!.armorPiercing != null}>
+          <Stat label="ББ" value={String(weapon()!.armorPiercing ?? 0)} />
+        </Show>
+        <Show when={weapon()!.shots != null}>
+          <Stat label="Выстрелы" value={String(weapon()!.shots ?? 0)} />
+        </Show>
+        <Show when={weapon()!.reload}>
+          {(v) => <Stat label="Перезарядка" value={v()} />}
+        </Show>
+        <Show when={weapon()!.twoHanded}>
+          <Stat label="Хват" value="2 руки" />
+        </Show>
+      </Show>
+      <Show when={other()}>
+        <Show when={other()!.armor != null}>
+          <Stat label="Броня" value={String(other()!.armor ?? 0)} />
+        </Show>
+        <Show when={other()!.covers}>
+          {(v) => <Stat label="Покрытие" value={v()} />}
+        </Show>
+      </Show>
+      <Show when={item().notes}>
+        {(v) => <Stat label="Особенности" value={v()} wide />}
+      </Show>
+    </dl>
+  );
+}
+
+function Stat(props: { label: string; value: string; wide?: boolean }): JSX.Element {
+  return (
+    <div class={[props.wide ? 'col-span-2 sm:col-span-3' : '', 'border-base-300 p-2 [&:not(:last-child)]:border-r'].join(' ')}>
+      <dt class="text-[10px] uppercase tracking-wide text-base-content/50">{props.label}</dt>
+      <dd class="mt-0.5 break-words font-medium">{props.value}</dd>
+    </div>
+  );
+}
+
+function categoryLabel(item: AnyItem): string {
+  const category = isWeapon(item)
+    ? (WEAPON_SUBCAT_RU[item.category] ?? item.category)
+    : (OTHER_CAT_RU[item.category] ?? item.category);
+  return item.subcategory ? `${category} · ${item.subcategory}` : category;
 }
 
 function ItemRow(props: {
@@ -267,7 +386,8 @@ function ItemRow(props: {
           </Show>
         </div>
         <div class="text-xs opacity-60">
-          ${props.item.cost} · {props.item.weight} кг
+          {isWeapon(props.item) && props.item.damage ? `${props.item.damage} · ` : ''}
+          {props.item.weight} кг · ${props.item.cost}
         </div>
       </button>
       <Button

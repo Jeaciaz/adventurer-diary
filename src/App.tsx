@@ -1,5 +1,5 @@
 import { createSignal, Match, Switch, type JSX } from 'solid-js';
-import { Activity, Sparkles, Sword, TriangleAlert, User, WandSparkles } from 'lucide-solid';
+import { Activity, HeartCrack, Medal, Sword, User, WandSparkles } from 'lucide-solid';
 import { StoreProvider } from './store/store';
 import { TopBar } from './components/TopBar';
 import { SettingsDrawer } from './components/SettingsDrawer';
@@ -14,12 +14,12 @@ import { PowersTab } from './tabs/PowersTab';
 type TabId = 'stats' | 'status' | 'edges' | 'hindrances' | 'equipment' | 'powers';
 
 const TABS: TabItem[] = [
-  { id: 'stats', label: 'Параметры', icon: <User size={18} /> },
-  { id: 'status', label: 'Состояние', icon: <Activity size={18} /> },
-  { id: 'edges', label: 'Черты', icon: <Sparkles size={18} /> },
-  { id: 'hindrances', label: 'Изъяны', icon: <TriangleAlert size={18} /> },
-  { id: 'equipment', label: 'Снаряжение', icon: <Sword size={18} /> },
-  { id: 'powers', label: 'Силы', icon: <WandSparkles size={18} /> },
+  { id: 'stats', label: 'Параметры', icon: <User size={20} /> },
+  { id: 'status', label: 'Состояние', icon: <Activity size={20} /> },
+  { id: 'edges', label: 'Черты', icon: <Medal size={20} /> },
+  { id: 'hindrances', label: 'Изъяны', icon: <HeartCrack size={20} /> },
+  { id: 'equipment', label: 'Снаряжение', icon: <Sword size={20} /> },
+  { id: 'powers', label: 'Силы', icon: <WandSparkles size={20} /> },
 ];
 
 export function App(): JSX.Element {

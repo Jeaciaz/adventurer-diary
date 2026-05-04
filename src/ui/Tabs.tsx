@@ -28,7 +28,6 @@ export function BottomTabs(props: TabsProps): JSX.Element {
             aria-label={item.label}
           >
             {item.icon}
-            <span class="btm-nav-label text-[10px]">{item.label}</span>
           </button>
         )}
       </For>
@@ -44,11 +43,11 @@ export function TopTabs(props: TabsProps): JSX.Element {
           <button
             type="button"
             role="tab"
-            class={`tab gap-2 ${item.id === props.active ? 'tab-active text-primary' : ''}`}
+            aria-label={item.label}
+            class={`tab px-4 ${item.id === props.active ? 'tab-active text-primary' : ''}`}
             onClick={() => props.onChange(item.id)}
           >
             {item.icon}
-            <span>{item.label}</span>
           </button>
         )}
       </For>

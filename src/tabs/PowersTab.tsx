@@ -41,11 +41,7 @@ export function PowersTab(): JSX.Element {
 
   const charRank = createMemo(() => rankFromAdvances(c().advancesUsed).rank);
 
-  const visibleAbs = createMemo(() =>
-    state.settings.deadlandsEnabled
-      ? ARCANE_BACKGROUNDS.filter((a) => a.source === 'dl')
-      : ARCANE_BACKGROUNDS.filter((a) => a.source !== 'dl'),
-  );
+  const visibleAbs = createMemo(() => ARCANE_BACKGROUNDS);
 
   const allowedSet = createMemo(() => {
     const a = ab();
