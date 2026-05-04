@@ -1,21 +1,9 @@
-import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
+import { createSignal, For, Show, type JSX } from 'solid-js';
 import { Plus, Trash2 } from 'lucide-solid';
 import { useStore } from '../store/store';
-import {
-  ATTRIBUTES,
-  BASE_SKILL_IDS,
-  SKILL_BY_ID,
-  SKILLS_BY_ATTRIBUTE,
-} from '../data';
-import {
-  attrPointsSpent,
-  computeFreePoints,
-  dieIndex,
-  hindrancePointsEarned,
-  skillCap,
-  skillPointCost,
-  skillPointsSpent,
-} from '../store/selectors';
+import { ATTRIBUTES, SKILLS_BY_ATTRIBUTE } from '../data';
+import { dieIndex } from '../store/selectors';
+import { createCharacterPointTotalsMemo } from '../store/pointTotals';
 import {
   Badge,
   Button,
@@ -27,7 +15,6 @@ import {
   RadioGroup,
   Select,
 } from '../ui';
-import { HINDRANCE_BY_ID } from '../data';
 import type {
   AttributeId,
   CustomSkill,
@@ -38,8 +25,8 @@ import { DIE_STEPS } from '../types';
 
 const DIE_OPTIONS = DIE_STEPS.map((d) => ({ value: d, label: d }));
 const SKILL_DIE_OPTIONS: { value: DieStepOrNone; label: string }[] = [
-  { value: null as DieStepOrNone, label: '—' },
-  ...DIE_STEPS.map((d) => ({ value: d as DieStepOrNone, label: d })),
+  { value: null, label: '—' },
+  ...DIE_STEPS.map((d) => ({ value: d, label: d })),
 ];
 const BASE_SKILL_DIE_OPTIONS = SKILL_DIE_OPTIONS.map((opt) => ({
   ...opt,
@@ -50,25 +37,7 @@ export function StatsSkillsTab(): JSX.Element {
   const { state, actions } = useStore();
   const c = (): typeof state.character => state.character;
 
-  const linkedAttrFor = (skillId: string): AttributeId | undefined => {
-    const builtin = SKILL_BY_ID.get(skillId);
-    if (builtin) return builtin.linkedAttribute;
-    return c().customSkills.find((cs) => cs.id === skillId)?.linkedAttribute;
-  };
-
-  const skillSpent = createMemo(() => skillPointsSpent(c(), BASE_SKILL_IDS, linkedAttrFor));
-  const attrSpent = createMemo(() => attrPointsSpent(c()));
-  const currentSkillCap = createMemo(() => skillCap(c(), state.settings.freeSkillPoints ?? 0));
-  const hindrancePoints = createMemo(() => hindrancePointsEarned(c(), HINDRANCE_BY_ID));
-  const free = createMemo(() =>
-    computeFreePoints({
-      c: c(),
-      hindrancePoints: hindrancePoints(),
-      skillSpent: skillSpent(),
-      attrSpent: attrSpent(),
-      freeSkillPoints: state.settings.freeSkillPoints ?? 0,
-    }),
-  );
+  const totals = createCharacterPointTotalsMemo(c, () => state.settings.freeSkillPoints ?? 0);
 
   return (
     <div class="flex flex-col gap-4">
@@ -77,17 +46,17 @@ export function StatsSkillsTab(): JSX.Element {
       <div class="flex flex-wrap gap-2">
         <Counter
           label="Параметры"
-          value={attrSpent()}
+          value={totals().attrSpent}
           cap={5}
-          warn={attrSpent() > 5 && free() < 0}
+          warn={totals().attrSpent > 5 && totals().free < 0}
         />
         <Counter
           label="Навыки"
-          value={skillSpent()}
-          cap={currentSkillCap()}
-          warn={skillSpent() > currentSkillCap() && free() < 0}
+          value={totals().skillSpent}
+          cap={totals().currentSkillCap}
+          warn={totals().skillSpent > totals().currentSkillCap && totals().free < 0}
         />
-        <Counter label="Свободные" value={free()} warn={free() < 0} />
+        <Counter label="Свободные" value={totals().free} warn={totals().free < 0} />
       </div>
 
       <For each={ATTRIBUTES}>

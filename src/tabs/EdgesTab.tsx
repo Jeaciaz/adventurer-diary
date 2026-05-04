@@ -51,48 +51,95 @@ const RANK_RU: Record<Rank, string> = {
 
 const RANK_ORDER: Rank[] = ['novice', 'seasoned', 'veteran', 'heroic', 'legendary'];
 
+function skillRequirementName(skillId: string): string {
+  return SKILL_BY_ID.get(skillId)?.ru ?? REMOVED_SKILL_RU[skillId] ?? skillId;
+}
+
+type RequirementLabeler = (requirement: EdgeRequirement) => string;
+type RequirementChecker = (requirement: EdgeRequirement, character: Character) => boolean | null;
+
+function rankReqLabel(r: EdgeRequirement): string {
+  return r.type === 'rank' ? RANK_RU[r.value] : '';
+}
+
+function attributeReqLabel(r: EdgeRequirement): string {
+  return r.type === 'attribute' ? `${ATTRIBUTE_RU.get(r.attribute) ?? r.attribute} ${r.minDie}+` : '';
+}
+
+function skillReqLabel(r: EdgeRequirement): string {
+  return r.type === 'skill' ? `${skillRequirementName(r.skillId)} ${r.minDie}+` : '';
+}
+
+function edgeReqLabel(r: EdgeRequirement): string {
+  return r.type === 'edge' ? `«${EDGE_BY_ID.get(r.edgeId)?.ru ?? r.edgeId}»` : '';
+}
+
+function otherReqLabel(r: EdgeRequirement): string {
+  return r.type === 'other' ? r.description : '';
+}
+
+const REQUIREMENT_LABELERS = new Map<EdgeRequirement['type'], RequirementLabeler>([
+  ['rank', rankReqLabel],
+  ['attribute', attributeReqLabel],
+  ['skill', skillReqLabel],
+  ['edge', edgeReqLabel],
+  ['wildCard', () => 'Дикая карта'],
+  ['other', otherReqLabel],
+]);
+
 function reqLabel(r: EdgeRequirement): string {
-  switch (r.type) {
-    case 'rank':
-      return RANK_RU[r.value];
-    case 'attribute':
-      return `${ATTRIBUTE_RU.get(r.attribute) ?? r.attribute} ${r.minDie}+`;
-    case 'skill':
-      return `${SKILL_BY_ID.get(r.skillId)?.ru ?? REMOVED_SKILL_RU[r.skillId] ?? r.skillId} ${r.minDie}+`;
-    case 'edge':
-      return `«${EDGE_BY_ID.get(r.edgeId)?.ru ?? r.edgeId}»`;
-    case 'wildCard':
-      return 'Дикая карта';
-    case 'other':
-      return r.description;
-  }
+  return REQUIREMENT_LABELERS.get(r.type)?.(r) ?? '';
 }
 
 function rankMeets(current: Rank, required: Rank): boolean {
   return RANK_ORDER.indexOf(current) >= RANK_ORDER.indexOf(required);
 }
 
-function skillDie(c: Character, skillId: string): DieStepOrNone {
-  const builtin = SKILL_BY_ID.get(skillId);
-  if (builtin) return c.skills[skillId] ?? (BASE_SKILL_IDS.includes(skillId) ? 'd4' : null);
+function builtinSkillDie(c: Character, skillId: string): DieStepOrNone {
+  const die = c.skills[skillId];
+  if (die != null) return die;
+  if (BASE_SKILL_IDS.includes(skillId)) return 'd4';
+  return null;
+}
+
+function customSkillDie(c: Character, skillId: string): DieStepOrNone {
   return c.customSkills.find((skill) => skill.id === skillId)?.die ?? null;
 }
 
+function skillDie(c: Character, skillId: string): DieStepOrNone {
+  if (SKILL_BY_ID.has(skillId)) return builtinSkillDie(c, skillId);
+  return customSkillDie(c, skillId);
+}
+
+function rankReqMet(r: EdgeRequirement, c: Character): boolean | null {
+  return r.type === 'rank' ? rankMeets(rankFromAdvances(c.advancesUsed).rank, r.value) : null;
+}
+
+function attributeReqMet(r: EdgeRequirement, c: Character): boolean | null {
+  return r.type === 'attribute'
+    ? dieIndex(c.attributes[r.attribute]) >= dieIndex(r.minDie)
+    : null;
+}
+
+function skillReqMet(r: EdgeRequirement, c: Character): boolean | null {
+  return r.type === 'skill' ? dieIndex(skillDie(c, r.skillId)) >= dieIndex(r.minDie) : null;
+}
+
+function edgeReqMet(r: EdgeRequirement, c: Character): boolean | null {
+  return r.type === 'edge' ? c.edges.some((edge) => edge.edgeId === r.edgeId) : null;
+}
+
+const REQUIREMENT_CHECKERS = new Map<EdgeRequirement['type'], RequirementChecker>([
+  ['rank', rankReqMet],
+  ['attribute', attributeReqMet],
+  ['skill', skillReqMet],
+  ['edge', edgeReqMet],
+  ['wildCard', () => true],
+  ['other', () => null],
+]);
+
 function reqMet(r: EdgeRequirement, c: Character): boolean | null {
-  switch (r.type) {
-    case 'rank':
-      return rankMeets(rankFromAdvances(c.advancesUsed).rank, r.value);
-    case 'attribute':
-      return dieIndex(c.attributes[r.attribute]) >= dieIndex(r.minDie);
-    case 'skill':
-      return dieIndex(skillDie(c, r.skillId)) >= dieIndex(r.minDie);
-    case 'edge':
-      return c.edges.some((edge) => edge.edgeId === r.edgeId);
-    case 'wildCard':
-      return true;
-    case 'other':
-      return null;
-  }
+  return REQUIREMENT_CHECKERS.get(r.type)?.(r, c) ?? null;
 }
 
 function RequirementBadge(props: { requirement: EdgeRequirement; character: Character }): JSX.Element {
@@ -160,14 +207,7 @@ export function EdgesTab(): JSX.Element {
                     class="flex flex-1 flex-col items-start gap-0.5 text-left"
                     onClick={() => setDrawerEdge(e)}
                   >
-                    <div class="flex items-center gap-2 text-sm font-medium">
-                      <span>{e.ru}</span>
-                      <Show when={e.source === 'dl'}>
-                        <Badge variant="info" outline>
-                          DL
-                        </Badge>
-                      </Show>
-                    </div>
+                    <EdgeTitle edge={e} />
                     <div class="text-xs opacity-60">{CATEGORY_RU[e.category]}</div>
                   </button>
                   <Button
@@ -204,19 +244,8 @@ export function EdgesTab(): JSX.Element {
                       class="flex flex-1 flex-col items-start gap-0.5 text-left"
                       onClick={() => setDrawerEdge(e)}
                     >
-                      <div class="flex items-center gap-2 text-sm font-medium">
-                        <span>{e.ru}</span>
-                        <Show when={e.source === 'dl'}>
-                          <Badge variant="info" outline>
-                            DL
-                          </Badge>
-                        </Show>
-                      </div>
-                      <div class="flex flex-wrap gap-1">
-                        <For each={e.requirements}>
-                          {(r) => <RequirementBadge requirement={r} character={c()} />}
-                        </For>
-                      </div>
+                      <EdgeTitle edge={e} />
+                      <RequirementBadges requirements={e.requirements} character={c()} />
                     </button>
                     <Button
                       size="xs"
@@ -252,9 +281,7 @@ export function EdgesTab(): JSX.Element {
                     DL
                   </Badge>
                 </Show>
-                <For each={e().requirements}>
-                  {(r) => <RequirementBadge requirement={r} character={c()} />}
-                </For>
+                <RequirementBadges requirements={e().requirements} character={c()} />
               </div>
               <p class="whitespace-pre-line text-sm leading-relaxed">{e().description}</p>
               <Show when={e().translationNote}>
@@ -288,6 +315,29 @@ export function EdgesTab(): JSX.Element {
           )}
         </Show>
       </Drawer>
+    </div>
+  );
+}
+
+function EdgeTitle(props: { edge: Edge }): JSX.Element {
+  return (
+    <div class="flex items-center gap-2 text-sm font-medium">
+      <span>{props.edge.ru}</span>
+      <Show when={props.edge.source === 'dl'}>
+        <Badge variant="info" outline>
+          DL
+        </Badge>
+      </Show>
+    </div>
+  );
+}
+
+function RequirementBadges(props: { requirements: EdgeRequirement[]; character: Character }): JSX.Element {
+  return (
+    <div class="flex flex-wrap gap-1">
+      <For each={props.requirements}>
+        {(r) => <RequirementBadge requirement={r} character={props.character} />}
+      </For>
     </div>
   );
 }

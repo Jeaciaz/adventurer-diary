@@ -13,7 +13,7 @@ import { PowersTab } from './tabs/PowersTab';
 
 type TabId = 'stats' | 'status' | 'edges' | 'hindrances' | 'equipment' | 'powers';
 
-const TABS: TabItem[] = [
+const TABS: TabItem<TabId>[] = [
   { id: 'stats', label: 'Параметры', icon: <User size={20} /> },
   { id: 'status', label: 'Состояние', icon: <Activity size={20} /> },
   { id: 'edges', label: 'Черты', icon: <Medal size={20} /> },
@@ -30,7 +30,7 @@ export function App(): JSX.Element {
     <StoreProvider>
       <div class="flex min-h-screen flex-col">
         <TopBar onOpenSettings={() => setSettingsOpen(true)} />
-        <TopTabs items={TABS} active={tab()} onChange={(id) => setTab(id as TabId)} />
+        <TopTabs items={TABS} active={tab()} onChange={setTab} />
         <main class="flex-1 overflow-y-auto px-3 pb-24 pt-3 sm:pb-6">
           <Switch>
             <Match when={tab() === 'stats'}>
@@ -53,7 +53,7 @@ export function App(): JSX.Element {
             </Match>
           </Switch>
         </main>
-        <BottomTabs items={TABS} active={tab()} onChange={(id) => setTab(id as TabId)} />
+        <BottomTabs items={TABS} active={tab()} onChange={setTab} />
         <SettingsDrawer open={settingsOpen()} onClose={() => setSettingsOpen(false)} />
         <ToastHost />
       </div>

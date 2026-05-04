@@ -13,6 +13,11 @@ export interface SelectProps<T extends string> {
   label?: string;
 }
 
+function selectedOptionValue<T extends string>(options: SelectOption<T>[], value: string): T | '' {
+  if (value === '') return '';
+  return options.find((opt) => opt.value === value)?.value ?? '';
+}
+
 export function Select<T extends string>(props: SelectProps<T>): JSX.Element {
   return (
     <label class="form-control w-full">
@@ -20,7 +25,7 @@ export function Select<T extends string>(props: SelectProps<T>): JSX.Element {
       <select
         class="select select-bordered select-sm w-full"
         value={props.value}
-        onChange={(e) => props.onChange(e.currentTarget.value as T | '')}
+        onChange={(e) => props.onChange(selectedOptionValue(props.options, e.currentTarget.value))}
       >
         {props.placeholder ? <option value="">{props.placeholder}</option> : null}
         <For each={props.options}>{(opt) => <option value={opt.value}>{opt.label}</option>}</For>

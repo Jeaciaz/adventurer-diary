@@ -17,6 +17,17 @@ import type {
   Skill,
   Weapon,
 } from '../types';
+import {
+  checkedArray,
+  isArcaneBackground,
+  isAttribute,
+  isEdge,
+  isEquipmentItem,
+  isHindrance,
+  isPower,
+  isSkill,
+  isWeapon,
+} from '../validation';
 
 const POWER_ID_ALIASES: Record<string, string> = {
   'arcane-protection': 'zashchita-ot-misticheskikh-sil',
@@ -79,14 +90,22 @@ function normalizePowerIds(ids: string[]): string[] {
   return [...new Set(ids.map((id) => POWER_ID_ALIASES[id] ?? id))];
 }
 
-export const ATTRIBUTES = attributesJson as Attribute[];
-export const SKILLS = skillsJson as Skill[];
-export const HINDRANCES = hindrancesJson as Hindrance[];
-export const EDGES = edgesJson as Edge[];
-export const POWERS = powersJson as Power[];
-export const WEAPONS = weaponsJson as Weapon[];
-export const EQUIPMENT_OTHER = equipmentOtherJson as EquipmentItem[];
-export const ARCANE_BACKGROUNDS = (abJson as ArcaneBackground[]).map((a) => ({
+export const ATTRIBUTES = checkedArray(attributesJson, isAttribute, 'attributes.json');
+const SKILLS = checkedArray(skillsJson, isSkill, 'skills.json');
+export const HINDRANCES = checkedArray(hindrancesJson, isHindrance, 'hindrances.json');
+export const EDGES = checkedArray(edgesJson, isEdge, 'edges.json');
+export const POWERS = checkedArray(powersJson, isPower, 'powers.json');
+export const WEAPONS = checkedArray(weaponsJson, isWeapon, 'equipment-weapons.json');
+export const EQUIPMENT_OTHER = checkedArray(
+  equipmentOtherJson,
+  isEquipmentItem,
+  'equipment-other.json',
+);
+export const ARCANE_BACKGROUNDS: ArcaneBackground[] = checkedArray(
+  abJson,
+  isArcaneBackground,
+  'arcane-backgrounds.json',
+).map((a) => ({
   ...a,
   allowedPowers: normalizePowerIds(a.allowedPowers),
 }));

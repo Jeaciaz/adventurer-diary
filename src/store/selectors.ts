@@ -1,4 +1,4 @@
-import type { Character, DieStep, DieStepOrNone, Hindrance, Rank } from '../types';
+import type { Character, CustomSkill, DieStep, DieStepOrNone, Hindrance, Rank } from '../types';
 import { DIE_STEPS, RANK_THRESHOLDS } from '../types';
 
 export function dieIndex(die: DieStepOrNone): number {
@@ -6,18 +6,7 @@ export function dieIndex(die: DieStepOrNone): number {
   return DIE_STEPS.indexOf(die);
 }
 
-export function dieFromIndex(idx: number): DieStep {
-  const step = DIE_STEPS[Math.max(0, Math.min(DIE_STEPS.length - 1, idx))];
-  return step ?? 'd4';
-}
-
-/** Steps from d4 baseline. d4 = 0 steps, d12 = 4. Null = untrained. */
-export function stepsFromBaseline(die: DieStepOrNone): number {
-  if (die == null) return 0;
-  return dieIndex(die);
-}
-
-export function attrPointsSpent(c: Character): number {
+function attrPointsSpent(c: Character): number {
   let total = 0;
   for (const attr of Object.values(c.attributes)) {
     total += dieIndex(attr); // d4=0, d6=1, ..., d12=4
@@ -33,7 +22,7 @@ export function attrPointsSpent(c: Character): number {
  * - d4 costs 1 point for regular skills
  * - Base skills start at d4 free; caller subtracts that first step.
  */
-export function skillPointCost(skillDie: DieStepOrNone, attrDie: DieStep): number {
+function skillPointCost(skillDie: DieStepOrNone, attrDie: DieStep): number {
   if (skillDie == null) return 0;
   const skillSteps = dieIndex(skillDie); // d4=0..d12=4
   const attrSteps = dieIndex(attrDie);
@@ -44,35 +33,47 @@ export function skillPointCost(skillDie: DieStepOrNone, attrDie: DieStep): numbe
   return cost;
 }
 
-export function skillPointsSpent(
+function baseSkillDiscount(baseSkillIds: string[], skillId: string, die: DieStepOrNone): number {
+  return baseSkillIds.includes(skillId) && die != null ? 1 : 0;
+}
+
+function builtinSkillPoints(
+  c: Character,
+  skillId: string,
+  die: DieStepOrNone,
+  baseSkillIds: string[],
+  linkedAttrFor: (skillId: string) => keyof Character['attributes'] | undefined,
+): number {
+  const attrId = linkedAttrFor(skillId);
+  if (!attrId) return 0;
+  const cost = skillPointCost(die, c.attributes[attrId]);
+  return Math.max(0, cost - baseSkillDiscount(baseSkillIds, skillId, die));
+}
+
+function customSkillPoints(c: Character, skill: CustomSkill): number {
+  if (skill.die == null) return 0;
+  return skillPointCost(skill.die, c.attributes[skill.linkedAttribute]);
+}
+
+function skillPointsSpent(
   c: Character,
   baseSkillIds: string[],
   linkedAttrFor: (skillId: string) => keyof Character['attributes'] | undefined,
 ): number {
   let total = 0;
-  // Built-in skills (data-driven)
   for (const [skillId, die] of Object.entries(c.skills)) {
-    const attrId = linkedAttrFor(skillId);
-    if (!attrId) continue;
-    const attrDie = c.attributes[attrId];
-    let cost = skillPointCost(die, attrDie);
-    // Base skills get d4 free (their start)
-    if (baseSkillIds.includes(skillId) && die != null) {
-      cost = Math.max(0, cost - 1);
-    }
-    total += cost;
+    total += builtinSkillPoints(c, skillId, die, baseSkillIds, linkedAttrFor);
   }
-  // Custom skills
   for (const cs of c.customSkills) {
-    if (cs.die == null) continue;
-    const attrDie = c.attributes[cs.linkedAttribute];
-    total += skillPointCost(cs.die, attrDie);
+    total += customSkillPoints(c, cs);
   }
   return total;
 }
 
 export function rankFromAdvances(advances: number): { rank: Rank; ru: string } {
-  let result = RANK_THRESHOLDS[0]!;
+  const firstRank = RANK_THRESHOLDS[0];
+  if (firstRank == null) throw new Error('RANK_THRESHOLDS must not be empty');
+  let result = firstRank;
   for (const t of RANK_THRESHOLDS) {
     if (advances >= t.minAdvances) result = t;
   }
@@ -95,15 +96,15 @@ export function hindrancePointsEarned(
 
 const HINDRANCE_AGE_ID = 'starost';
 
-export function hasAgeHindrance(c: Character): boolean {
+function hasAgeHindrance(c: Character): boolean {
   return c.hindrances.some((h) => h.hindranceId === HINDRANCE_AGE_ID);
 }
 
-export function skillCap(c: Character, freeSkillPoints = 0): number {
+function skillCap(c: Character, freeSkillPoints = 0): number {
   return 12 + freeSkillPoints + (hasAgeHindrance(c) ? 5 : 0);
 }
 
-export function attrCap(): number {
+function attrCap(): number {
   return 5;
 }
 
@@ -118,7 +119,7 @@ export function edgeCap(): number {
  *        + max(0, attrSpent − 5)         × 2
  *        + max(0, edges     − edgeCap)   × 2
  */
-export function computeFreePoints(args: {
+function computeFreePoints(args: {
   c: Character;
   hindrancePoints: { minor: number; major: number };
   skillSpent: number;
@@ -131,4 +132,30 @@ export function computeFreePoints(args: {
   const attrOver = Math.max(0, attrSpent - attrCap());
   const edgesOver = Math.max(0, c.edges.length - edgeCap());
   return earned - skillOver - attrOver * 2 - edgesOver * 2;
+}
+
+export function characterPointTotals(args: {
+  c: Character;
+  baseSkillIds: string[];
+  linkedAttrFor: (skillId: string) => keyof Character['attributes'] | undefined;
+  hindranceMap: Map<string, Hindrance>;
+  freeSkillPoints?: number;
+}): {
+  skillSpent: number;
+  attrSpent: number;
+  currentSkillCap: number;
+  hindrancePoints: { minor: number; major: number; total: number };
+  free: number;
+} {
+  const { c, baseSkillIds, linkedAttrFor, hindranceMap, freeSkillPoints = 0 } = args;
+  const skillSpent = skillPointsSpent(c, baseSkillIds, linkedAttrFor);
+  const attrSpent = attrPointsSpent(c);
+  const hindrancePoints = hindrancePointsEarned(c, hindranceMap);
+  return {
+    skillSpent,
+    attrSpent,
+    currentSkillCap: skillCap(c, freeSkillPoints),
+    hindrancePoints,
+    free: computeFreePoints({ c, hindrancePoints, skillSpent, attrSpent, freeSkillPoints }),
+  };
 }

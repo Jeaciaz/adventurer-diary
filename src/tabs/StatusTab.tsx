@@ -2,18 +2,13 @@ import { createMemo, type JSX } from 'solid-js';
 import { For } from 'solid-js';
 import { Diamond } from 'lucide-solid';
 import { useStore } from '../store/store';
-import { BASE_SKILL_IDS, HINDRANCE_BY_ID, SKILL_BY_ID } from '../data';
 import {
-  attrPointsSpent,
-  computeFreePoints,
   edgeCap,
-  hindrancePointsEarned,
   rankFromAdvances,
-  skillCap,
-  skillPointsSpent,
 } from '../store/selectors';
+import { createCharacterPointTotalsMemo } from '../store/pointTotals';
 import { Card, Counter, NumberStepper, RadioGroup } from '../ui';
-import type { AttributeId, Rank } from '../types';
+import type { Rank } from '../types';
 
 const RANK_STEP: Record<Rank, number> = {
   novice: 0,
@@ -32,25 +27,7 @@ export function StatusTab(): JSX.Element {
   const { state, actions } = useStore();
   const c = (): typeof state.character => state.character;
 
-  const linkedAttrFor = (skillId: string): AttributeId | undefined => {
-    const builtin = SKILL_BY_ID.get(skillId);
-    if (builtin) return builtin.linkedAttribute;
-    return c().customSkills.find((cs) => cs.id === skillId)?.linkedAttribute;
-  };
-
-  const skillSpent = createMemo(() => skillPointsSpent(c(), BASE_SKILL_IDS, linkedAttrFor));
-  const attrSpent = createMemo(() => attrPointsSpent(c()));
-  const currentSkillCap = createMemo(() => skillCap(c(), state.settings.freeSkillPoints ?? 0));
-  const hindrancePoints = createMemo(() => hindrancePointsEarned(c(), HINDRANCE_BY_ID));
-  const free = createMemo(() =>
-    computeFreePoints({
-      c: c(),
-      hindrancePoints: hindrancePoints(),
-      skillSpent: skillSpent(),
-      attrSpent: attrSpent(),
-      freeSkillPoints: state.settings.freeSkillPoints ?? 0,
-    }),
-  );
+  const totals = createCharacterPointTotalsMemo(c, () => state.settings.freeSkillPoints ?? 0);
   const rank = createMemo(() => rankFromAdvances(c().advancesUsed));
 
   return (
@@ -93,10 +70,10 @@ export function StatusTab(): JSX.Element {
       <Card>
         <div class="text-xs uppercase opacity-60">Очки персонажа</div>
         <div class="mt-2 flex flex-wrap gap-2">
-          <Counter label="Свободные" value={free()} warn={free() < 0} />
-          <Counter label="Параметры" value={attrSpent()} cap={5} />
-          <Counter label="Навыки" value={skillSpent()} cap={currentSkillCap()} />
-          <Counter label="Изъяны" value={hindrancePoints().total} cap={4} warn={hindrancePoints().total > 4} />
+          <Counter label="Свободные" value={totals().free} warn={totals().free < 0} />
+          <Counter label="Параметры" value={totals().attrSpent} cap={5} />
+          <Counter label="Навыки" value={totals().skillSpent} cap={totals().currentSkillCap} />
+          <Counter label="Изъяны" value={totals().hindrancePoints.total} cap={4} warn={totals().hindrancePoints.total > 4} />
           <Counter label="Черты" value={c().edges.length} cap={edgeCap()} />
         </div>
         <p class="mt-3 text-xs leading-relaxed opacity-70">

@@ -12,7 +12,7 @@ import {
   Select,
   Toggle,
 } from '../ui';
-import type { Power, Rank } from '../types';
+import type { ArcaneBackground, Character, Power, Rank, SelectedPower } from '../types';
 
 const RANK_RU: Record<Rank, string> = {
   novice: 'Новичок',
@@ -36,6 +36,8 @@ const ATTACK_POWER_STATS: Record<string, { damage: string; sort: number }> = {
   vzryv: { damage: '2d6', sort: 7 },
 };
 
+type SelectedPowerEntry = { sel: SelectedPower; power: Power };
+
 function rankLeq(a: Rank, b: Rank): boolean {
   return RANK_ORDER.indexOf(a) <= RANK_ORDER.indexOf(b);
 }
@@ -44,11 +46,83 @@ function isDamagePower(p: Power): boolean {
   return ATTACK_POWER_STATS[p.id] != null;
 }
 
+function attackPowerRank(p: Power): number {
+  return ATTACK_POWER_STATS[p.id]?.sort ?? 0;
+}
+
 function attackPowerSort(a: Power, b: Power): number {
-  return (
-    (ATTACK_POWER_STATS[a.id]?.sort ?? 0) - (ATTACK_POWER_STATS[b.id]?.sort ?? 0) ||
-    a.ru.localeCompare(b.ru, 'ru')
-  );
+  return attackPowerRank(a) - attackPowerRank(b) || a.ru.localeCompare(b.ru, 'ru');
+}
+
+function selectedArcaneBackground(c: Character): ArcaneBackground | null {
+  const id = c.arcaneBackgroundId;
+  if (id == null) return null;
+  return ARCANE_BACKGROUND_BY_ID.get(id) ?? null;
+}
+
+function arcaneBackgroundLabel(a: ArcaneBackground): string {
+  return a.source === 'dl' ? `${a.ru} (DL)` : a.ru;
+}
+
+function arcaneBackgroundValue(c: Character): string {
+  return c.arcaneBackgroundId ?? '';
+}
+
+function arcaneBackgroundFromSelect(value: string): string | null {
+  return value === '' ? null : value;
+}
+
+function allowedPowersFor(a: ArcaneBackground | null): Set<string> | null {
+  if (!a || a.allowedPowers.length === 0) return null;
+  return new Set(a.allowedPowers);
+}
+
+function powerAvailable(p: Power, taken: Set<string>, deadlandsEnabled: boolean): boolean {
+  return (deadlandsEnabled || p.source !== 'dl') && !taken.has(p.id);
+}
+
+function abFilterActive(c: Character, allowed: Set<string> | null): boolean {
+  return c.abFilterEnabled && allowed != null;
+}
+
+function filterByArcaneBackground(powers: Power[], c: Character, allowed: Set<string> | null): Power[] {
+  if (allowed == null || !c.abFilterEnabled) return powers;
+  return powers.filter((p) => allowed.has(p.id));
+}
+
+function availablePowers(c: Character, deadlandsEnabled: boolean, allowed: Set<string> | null): Power[] {
+  const taken = new Set(c.powers.map((p) => p.powerId));
+  const powers = POWERS.filter((p) => powerAvailable(p, taken, deadlandsEnabled));
+  return filterByArcaneBackground(powers, c, allowed);
+}
+
+function compareSelectedPowers(a: SelectedPowerEntry, b: SelectedPowerEntry): number {
+  if (a.sel.pinned !== b.sel.pinned) return a.sel.pinned ? -1 : 1;
+  return a.sel.order - b.sel.order;
+}
+
+function selectedPowerEntries(c: Character): SelectedPowerEntry[] {
+  const entries = c.powers
+    .map((sel) => ({ sel, power: POWER_BY_ID.get(sel.powerId) }))
+    .filter((x): x is SelectedPowerEntry => !!x.power);
+  entries.sort(compareSelectedPowers);
+  return entries;
+}
+
+function arcaneBackgroundWarn(c: Character, allowed: Set<string> | null, powerId: string): boolean {
+  return allowed != null && c.abFilterEnabled && !allowed.has(powerId);
+}
+
+function pinActionLabel(pinned: boolean): string {
+  return pinned ? 'Открепить' : 'Закрепить';
+}
+
+function pinIcon(pinned: boolean): JSX.Element {
+  return pinned ? <PinOff size={14} /> : <Pin size={14} />;
+}
+
+function hasPower(c: Character, powerId: string): boolean {
+  return c.powers.some((x) => x.powerId === powerId);
 }
 
 export function PowersTab(): JSX.Element {
@@ -56,32 +130,15 @@ export function PowersTab(): JSX.Element {
   const c = (): typeof state.character => state.character;
   const [drawerPower, setDrawerPower] = createSignal<Power | null>(null);
 
-  const ab = createMemo(() =>
-    c().arcaneBackgroundId ? ARCANE_BACKGROUND_BY_ID.get(c().arcaneBackgroundId!) ?? null : null,
-  );
+  const ab = createMemo(() => selectedArcaneBackground(c()));
 
   const charRank = createMemo(() => rankFromAdvances(c().advancesUsed).rank);
 
   const visibleAbs = createMemo(() => ARCANE_BACKGROUNDS);
 
-  const allowedSet = createMemo(() => {
-    const a = ab();
-    if (!a || a.allowedPowers.length === 0) return null;
-    return new Set(a.allowedPowers);
-  });
+  const allowedSet = createMemo(() => allowedPowersFor(ab()));
 
-  const visiblePowers = createMemo(() => {
-    const taken = new Set(c().powers.map((p) => p.powerId));
-    let list = POWERS.filter(
-      (p) =>
-        (state.settings.deadlandsEnabled || p.source !== 'dl') &&
-        !taken.has(p.id),
-    );
-    if (c().abFilterEnabled && allowedSet()) {
-      list = list.filter((p) => allowedSet()!.has(p.id));
-    }
-    return list;
-  });
+  const visiblePowers = createMemo(() => availablePowers(c(), state.settings.deadlandsEnabled, allowedSet()));
 
   const groupedPowers = createMemo(() => {
     const powers = visiblePowers();
@@ -91,16 +148,7 @@ export function PowersTab(): JSX.Element {
     ].filter((group) => group.items.length > 0);
   });
 
-  const selectedSorted = createMemo(() => {
-    const enriched = c()
-      .powers.map((sel) => ({ sel, power: POWER_BY_ID.get(sel.powerId) }))
-      .filter((x): x is { sel: typeof x.sel; power: Power } => !!x.power);
-    enriched.sort((a, b) => {
-      if (a.sel.pinned !== b.sel.pinned) return a.sel.pinned ? -1 : 1;
-      return a.sel.order - b.sel.order;
-    });
-    return enriched;
-  });
+  const selectedSorted = createMemo(() => selectedPowerEntries(c()));
 
   return (
     <div class="flex flex-col gap-4">
@@ -110,10 +158,10 @@ export function PowersTab(): JSX.Element {
             label="Мистический дар"
             options={visibleAbs().map((a) => ({
               value: a.id,
-              label: `${a.ru}${a.source === 'dl' ? ' (DL)' : ''}`,
+              label: arcaneBackgroundLabel(a),
             }))}
-            value={c().arcaneBackgroundId ?? ''}
-            onChange={(v) => actions.setArcaneBackground(v === '' ? null : v)}
+            value={arcaneBackgroundValue(c())}
+            onChange={(v) => actions.setArcaneBackground(arcaneBackgroundFromSelect(v))}
             placeholder="— нет —"
           />
           <NumberStepper
@@ -164,10 +212,10 @@ export function PowersTab(): JSX.Element {
                     size="xs"
                     variant="ghost"
                     square
-                    aria-label={sel.pinned ? 'Открепить' : 'Закрепить'}
+                    aria-label={pinActionLabel(sel.pinned)}
                     onClick={() => actions.togglePinPower(power.id)}
                   >
-                    {sel.pinned ? <PinOff size={14} /> : <Pin size={14} />}
+                    {pinIcon(sel.pinned)}
                   </Button>
                   <Button
                     size="xs"
@@ -198,8 +246,7 @@ export function PowersTab(): JSX.Element {
                   <For each={group.items}>
                     {(p) => {
                       const rankWarn = !rankLeq(p.rank, charRank());
-                      const abWarn =
-                        c().abFilterEnabled && allowedSet() != null && !allowedSet()!.has(p.id);
+                      const abWarn = arcaneBackgroundWarn(c(), allowedSet(), p.id);
                       return (
                         <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
                           <button
@@ -275,7 +322,7 @@ export function PowersTab(): JSX.Element {
                 <p class="text-xs italic opacity-70">{p().translationNote}</p>
               </Show>
               <Show
-                when={!c().powers.some((x) => x.powerId === p().id)}
+                when={!hasPower(c(), p().id)}
                 fallback={
                   <Button
                     variant="error"

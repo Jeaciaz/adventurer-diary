@@ -11,11 +11,21 @@ const SEVERITY_RU: Record<HindranceSeverity, string> = {
   major: 'крупный',
 };
 
+function defaultSeverity(h: Hindrance): HindranceSeverity | undefined {
+  return h.severityOptions[0];
+}
+
 export function HindrancesTab(): JSX.Element {
   const { state, actions } = useStore();
   const c = (): typeof state.character => state.character;
   const [search, setSearch] = createSignal('');
   const [drawerHindrance, setDrawerHindrance] = createSignal<Hindrance | null>(null);
+
+  const addHindrance = (h: Hindrance): void => {
+    const severity = defaultSeverity(h);
+    if (severity == null) return;
+    actions.addHindrance({ hindranceId: h.id, severity });
+  };
 
   const visible = createMemo(() => {
     const dlOn = state.settings.deadlandsEnabled;
@@ -134,12 +144,8 @@ export function HindrancesTab(): JSX.Element {
                   variant="ghost"
                   square
                   aria-label="Добавить"
-                  onClick={() =>
-                    actions.addHindrance({
-                      hindranceId: h.id,
-                      severity: h.severityOptions[0]!,
-                    })
-                  }
+                  disabled={defaultSeverity(h) == null}
+                  onClick={() => addHindrance(h)}
                 >
                   <Plus size={14} />
                 </Button>
@@ -188,12 +194,10 @@ export function HindrancesTab(): JSX.Element {
                 <Button
                   variant="primary"
                   onClick={() => {
-                    actions.addHindrance({
-                      hindranceId: h().id,
-                      severity: h().severityOptions[0]!,
-                    });
+                    addHindrance(h());
                     setDrawerHindrance(null);
                   }}
+                  disabled={defaultSeverity(h()) == null}
                 >
                   Добавить
                 </Button>

@@ -1,4 +1,5 @@
 import { splitProps, type JSX } from 'solid-js';
+import { cx } from './classes';
 
 type Variant = 'primary' | 'ghost' | 'outline' | 'error' | 'success' | 'neutral';
 type Size = 'xs' | 'sm' | 'md' | 'lg';
@@ -26,21 +27,35 @@ const sizeClass: Record<Size, string> = {
   lg: 'btn-lg',
 };
 
+function buttonVariant(variant: Variant | undefined): string {
+  return variantClass[variant ?? 'neutral'];
+}
+
+function buttonSize(size: Size | undefined): string {
+  return sizeClass[size ?? 'md'];
+}
+
+function buttonSquare(iconOnly: boolean | undefined, square: boolean | undefined): string {
+  return iconOnly || square ? 'btn-square' : '';
+}
+
+function buttonClass(local: Pick<ButtonProps, 'variant' | 'size' | 'class' | 'iconOnly' | 'square'>): string {
+  return cx([
+    'btn',
+    buttonVariant(local.variant),
+    buttonSize(local.size),
+    buttonSquare(local.iconOnly, local.square),
+    local.class,
+  ]);
+}
+
 export function Button(props: ButtonProps): JSX.Element {
   const [local, rest] = splitProps(props, ['variant', 'size', 'class', 'iconOnly', 'square']);
   return (
     <button
       type="button"
       {...rest}
-      class={[
-        'btn',
-        variantClass[local.variant ?? 'neutral'],
-        sizeClass[local.size ?? 'md'],
-        local.iconOnly || local.square ? 'btn-square' : '',
-        local.class ?? '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
+      class={buttonClass(local)}
     />
   );
 }

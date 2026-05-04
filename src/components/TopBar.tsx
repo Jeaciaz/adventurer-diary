@@ -41,7 +41,9 @@ export function TopBar(props: { onOpenSettings: () => void }): JSX.Element {
                 </div>
               }
             >
-              <img src={state.portrait!} alt="Портрет" class="h-full w-full object-cover" />
+              {(portrait) => (
+                <img src={portrait()} alt="Портрет" class="h-full w-full object-cover" />
+              )}
             </Show>
           </div>
         </div>

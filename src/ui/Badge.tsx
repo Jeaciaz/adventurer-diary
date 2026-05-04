@@ -1,6 +1,23 @@
 import type { JSX } from 'solid-js';
+import { cx } from './classes';
 
 export type BadgeVariant = 'neutral' | 'primary' | 'secondary' | 'accent' | 'warning' | 'error' | 'info' | 'success' | 'ghost';
+
+const badgeVariantClass: Record<BadgeVariant, string> = {
+  neutral: '',
+  primary: 'badge-primary',
+  secondary: 'badge-secondary',
+  accent: 'badge-accent',
+  warning: 'badge-warning',
+  error: 'badge-error',
+  info: 'badge-info',
+  success: 'badge-success',
+  ghost: 'badge-ghost',
+};
+
+function badgeOutlineClass(outline: boolean | undefined): string {
+  return outline ? 'badge-outline' : '';
+}
 
 export function Badge(props: {
   children: JSX.Element;
@@ -11,12 +28,12 @@ export function Badge(props: {
   const v = props.variant ?? 'neutral';
   return (
     <span
-      class={[
+      class={cx([
         'badge badge-sm',
-        v !== 'neutral' ? `badge-${v}` : '',
-        props.outline ? 'badge-outline' : '',
+        badgeVariantClass[v],
+        badgeOutlineClass(props.outline),
         props.class ?? '',
-      ].join(' ')}
+      ])}
     >
       {props.children}
     </span>

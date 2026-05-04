@@ -1,22 +1,22 @@
 import { For, type JSX } from 'solid-js';
 
-export interface TabItem {
-  id: string;
+export interface TabItem<T extends string = string> {
+  id: T;
   label: string;
   icon?: JSX.Element;
 }
 
-export interface TabsProps {
-  items: TabItem[];
-  active: string;
-  onChange: (id: string) => void;
+export interface TabsProps<T extends string = string> {
+  items: TabItem<T>[];
+  active: T;
+  onChange: (id: T) => void;
 }
 
 /**
  * Mobile: bottom nav. Desktop (sm+): top bar.
  * Renders both via responsive classes so the active control is always reachable.
  */
-export function BottomTabs(props: TabsProps): JSX.Element {
+export function BottomTabs<T extends string>(props: TabsProps<T>): JSX.Element {
   return (
     <nav class="btm-nav btm-nav-sm safe-bottom border-t border-base-300 bg-base-200/95 backdrop-blur sm:hidden">
       <For each={props.items}>
@@ -35,7 +35,7 @@ export function BottomTabs(props: TabsProps): JSX.Element {
   );
 }
 
-export function TopTabs(props: TabsProps): JSX.Element {
+export function TopTabs<T extends string>(props: TabsProps<T>): JSX.Element {
   return (
     <div role="tablist" class="tabs tabs-bordered hidden sm:flex sm:px-2">
       <For each={props.items}>

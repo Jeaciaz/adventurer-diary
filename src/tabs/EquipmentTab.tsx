@@ -14,10 +14,33 @@ import {
 } from '../ui';
 import type { EquipmentItem, Weapon } from '../types';
 
-type AnyItem = (Weapon | EquipmentItem) & { _kind: 'weapon' | 'other' };
+type WeaponItem = Weapon & { _kind: 'weapon' };
+type OtherItem = EquipmentItem & { _kind: 'other' };
+type AnyItem = WeaponItem | OtherItem;
 
-function isWeapon(i: AnyItem): i is Weapon & { _kind: 'weapon' } {
+function weaponItem(item: Weapon): WeaponItem {
+  return { ...item, _kind: 'weapon' };
+}
+
+function otherItem(item: EquipmentItem): OtherItem {
+  return { ...item, _kind: 'other' };
+}
+
+function isWeapon(i: AnyItem): i is WeaponItem {
   return i._kind === 'weapon';
+}
+
+function isOther(i: AnyItem): i is OtherItem {
+  return i._kind === 'other';
+}
+
+function selectedItem(sel: { itemId: string; type: 'weapon' | 'other' }): AnyItem | null {
+  if (sel.type === 'weapon') {
+    const item = WEAPON_BY_ID.get(sel.itemId);
+    return item == null ? null : weaponItem(item);
+  }
+  const item = EQUIPMENT_OTHER_BY_ID.get(sel.itemId);
+  return item == null ? null : otherItem(item);
 }
 
 const WEAPON_SUBCAT_RU: Record<string, string> = {
@@ -38,27 +61,66 @@ const OTHER_CAT_RU: Record<string, string> = {
 
 const MONEY_DELTAS = [-10, -5, -3, -2, -1, 1, 2, 3, 5, 10];
 
-function damageSortValue(damage?: string): number {
-  if (!damage || damage === '—') return Number.NEGATIVE_INFINITY;
-  const normalized = damage.replace(/[−–]/g, '-');
+function normalizedDamage(damage: string): string {
+  return damage.replace(/[−–]/g, '-');
+}
+
+function diceAverage(match: RegExpMatchArray): number {
+  const count = match[1] ? Number(match[1]) : 1;
+  const sides = Number(match[2]);
+  return count * ((sides + 1) / 2);
+}
+
+function diceDamageValue(damage: string): number {
   let value = 0;
-
-  for (const match of normalized.matchAll(/(\d*)d(\d+)/gi)) {
-    const count = match[1] ? Number(match[1]) : 1;
-    const sides = Number(match[2]);
-    value += count * ((sides + 1) / 2);
+  for (const match of damage.matchAll(/(\d*)d(\d+)/gi)) {
+    value += diceAverage(match);
   }
+  return value;
+}
 
-  const withoutDice = normalized.replace(/\d*d\d+/gi, '');
+function flatModifierValue(damage: string): number {
+  const withoutDice = damage.replace(/\d*d\d+/gi, '');
+  let value = 0;
   for (const match of withoutDice.matchAll(/[+-]\d+/g)) {
     value += Number(match[0]);
   }
-
   return value;
+}
+
+function damageSortValue(damage?: string): number {
+  if (!damage || damage === '—') return Number.NEGATIVE_INFINITY;
+  const normalized = normalizedDamage(damage);
+  return diceDamageValue(normalized) + flatModifierValue(normalized);
 }
 
 function compareWeaponDamage(a: Weapon, b: Weapon): number {
   return damageSortValue(a.damage) - damageSortValue(b.damage) || a.cost - b.cost || a.ru.localeCompare(b.ru, 'ru');
+}
+
+function sourceAllowed(item: Pick<Weapon | EquipmentItem, 'source'>, deadlandsEnabled: boolean): boolean {
+  return deadlandsEnabled || item.source !== 'dl';
+}
+
+function deadlandsOnlyAllowed(item: Pick<Weapon | EquipmentItem, 'source'>, onlyDeadlands: boolean): boolean {
+  return !onlyDeadlands || item.source === 'dl';
+}
+
+function queryMatches(item: Pick<Weapon | EquipmentItem, 'ru'>, query: string): boolean {
+  return query === '' || item.ru.toLowerCase().includes(query);
+}
+
+function matchesItemFilter(
+  item: Pick<Weapon | EquipmentItem, 'ru' | 'source'>,
+  query: string,
+  onlyDeadlands: boolean,
+  deadlandsEnabled: boolean,
+): boolean {
+  return (
+    sourceAllowed(item, deadlandsEnabled) &&
+    deadlandsOnlyAllowed(item, onlyDeadlands) &&
+    queryMatches(item, query)
+  );
 }
 
 export function EquipmentTab(): JSX.Element {
@@ -72,24 +134,14 @@ export function EquipmentTab(): JSX.Element {
 
   const weaponsVisible = createMemo<AnyItem[]>(() => {
     const q = search().toLowerCase().trim();
-    return WEAPONS.filter(
-      (w) =>
-        (dlOn() || w.source !== 'dl') &&
-        (!onlyDeadlands() || w.source === 'dl') &&
-        (!q || w.ru.toLowerCase().includes(q)),
-    )
-      .map((w) => ({ ...w, _kind: 'weapon' as const }))
+    return WEAPONS.filter((w) => matchesItemFilter(w, q, onlyDeadlands(), dlOn()))
+      .map(weaponItem)
       .sort(compareWeaponDamage);
   });
 
   const otherVisible = createMemo<AnyItem[]>(() => {
     const q = search().toLowerCase().trim();
-    return EQUIPMENT_OTHER.filter(
-      (e) =>
-        (dlOn() || e.source !== 'dl') &&
-        (!onlyDeadlands() || e.source === 'dl') &&
-        (!q || e.ru.toLowerCase().includes(q)),
-    ).map((e) => ({ ...e, _kind: 'other' as const }));
+    return EQUIPMENT_OTHER.filter((e) => matchesItemFilter(e, q, onlyDeadlands(), dlOn())).map(otherItem);
   });
 
   const weaponsByCategory = createMemo(() => {
@@ -127,19 +179,14 @@ export function EquipmentTab(): JSX.Element {
           <ul class="mt-2 flex flex-col gap-1">
             <For each={c().equipment}>
               {(sel) => {
-                const item =
-                  sel.type === 'weapon'
-                    ? WEAPON_BY_ID.get(sel.itemId)
-                    : EQUIPMENT_OTHER_BY_ID.get(sel.itemId);
-                if (!item) return null;
+                const item = selectedItem(sel);
+                if (item == null) return null;
                 return (
                   <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
                     <button
                       type="button"
                       class="flex flex-1 flex-col items-start gap-0.5 text-left"
-                      onClick={() =>
-                        setDrawerItem({ ...item, _kind: sel.type === 'weapon' ? 'weapon' : 'other' } as AnyItem)
-                      }
+                      onClick={() => setDrawerItem(item)}
                     >
                       <div class="flex items-center gap-2 text-sm font-medium">
                         <span>{item.ru}</span>
@@ -186,11 +233,7 @@ export function EquipmentTab(): JSX.Element {
       <Collapsible title={`Оружие (${weaponsVisible().length})`} defaultOpen={false}>
         <For each={weaponsByCategory()}>
           {([cat, items]) => (
-            <Collapsible title={`${WEAPON_SUBCAT_RU[cat] ?? cat} (${items.length})`} defaultOpen={false}>
-              <ul class="flex flex-col gap-1">
-                <For each={items}>{(item) => <ItemRow item={item} onTap={setDrawerItem} />}</For>
-              </ul>
-            </Collapsible>
+            <ItemCategoryGroup title={`${WEAPON_SUBCAT_RU[cat] ?? cat} (${items.length})`} items={items} onTap={setDrawerItem} />
           )}
         </For>
       </Collapsible>
@@ -198,11 +241,7 @@ export function EquipmentTab(): JSX.Element {
       <Collapsible title={`Прочее (${otherVisible().length})`} defaultOpen={false}>
         <For each={otherByCategory()}>
           {([cat, items]) => (
-            <Collapsible title={`${OTHER_CAT_RU[cat] ?? cat} (${items.length})`} defaultOpen={false}>
-              <ul class="flex flex-col gap-1">
-                <For each={items}>{(item) => <ItemRow item={item} onTap={setDrawerItem} />}</For>
-              </ul>
-            </Collapsible>
+            <ItemCategoryGroup title={`${OTHER_CAT_RU[cat] ?? cat} (${items.length})`} items={items} onTap={setDrawerItem} />
           )}
         </For>
       </Collapsible>
@@ -287,15 +326,29 @@ function MoneyControl(props: { value: number; onChange: (v: number) => void }): 
   );
 }
 
+function ItemCategoryGroup(props: {
+  title: string;
+  items: AnyItem[];
+  onTap: (item: AnyItem) => void;
+}): JSX.Element {
+  return (
+    <Collapsible title={props.title} defaultOpen={false}>
+      <ul class="flex flex-col gap-1">
+        <For each={props.items}>{(item) => <ItemRow item={item} onTap={props.onTap} />}</For>
+      </ul>
+    </Collapsible>
+  );
+}
+
 function ItemStats(props: { item: AnyItem }): JSX.Element {
   const item = (): AnyItem => props.item;
-  const weapon = (): (Weapon & { _kind: 'weapon' }) | null => {
+  const weapon = (): WeaponItem | null => {
     const current = item();
     return isWeapon(current) ? current : null;
   };
-  const other = (): (EquipmentItem & { _kind: 'other' }) | null => {
+  const other = (): OtherItem | null => {
     const current = item();
-    return isWeapon(current) ? null : (current as EquipmentItem & { _kind: 'other' });
+    return isOther(current) ? current : null;
   };
 
   return (
@@ -307,35 +360,43 @@ function ItemStats(props: { item: AnyItem }): JSX.Element {
         {(v) => <Stat label="Требуемая мощь" value={v()} icon={<Dumbbell size={13} />} />}
       </Show>
       <Show when={weapon()}>
-        <Show when={weapon()!.damage}>
-          {(v) => <Stat label="Урон" value={v()} icon={<Crosshair size={13} />} />}
-        </Show>
-        <Show when={weapon()!.range}>
-          {(v) => <Stat label="Дистанция" value={v()} icon={<Ruler size={13} />} />}
-        </Show>
-        <Show when={weapon()!.rateOfFire}>
-          {(v) => <Stat label="Скорострельность" value={String(v())} icon={<Gauge size={13} />} />}
-        </Show>
-        <Show when={weapon()!.armorPiercing != null}>
-          <Stat label="ББ" value={String(weapon()!.armorPiercing ?? 0)} icon={<Target size={13} />} />
-        </Show>
-        <Show when={weapon()!.shots != null}>
-          <Stat label="Выстрелы" value={String(weapon()!.shots ?? 0)} icon={<Crosshair size={13} />} />
-        </Show>
-        <Show when={weapon()!.reload}>
-          {(v) => <Stat label="Перезарядка" value={v()} />}
-        </Show>
-        <Show when={weapon()!.twoHanded}>
-          <Stat label="Хват" value="2 руки" />
-        </Show>
+        {(w) => (
+          <>
+            <Show when={w().damage}>
+              {(v) => <Stat label="Урон" value={v()} icon={<Crosshair size={13} />} />}
+            </Show>
+            <Show when={w().range}>
+              {(v) => <Stat label="Дистанция" value={v()} icon={<Ruler size={13} />} />}
+            </Show>
+            <Show when={w().rateOfFire}>
+              {(v) => <Stat label="Скорострельность" value={String(v())} icon={<Gauge size={13} />} />}
+            </Show>
+            <Show when={w().armorPiercing != null}>
+              <Stat label="ББ" value={String(w().armorPiercing ?? 0)} icon={<Target size={13} />} />
+            </Show>
+            <Show when={w().shots != null}>
+              <Stat label="Выстрелы" value={String(w().shots ?? 0)} icon={<Crosshair size={13} />} />
+            </Show>
+            <Show when={w().reload}>
+              {(v) => <Stat label="Перезарядка" value={v()} />}
+            </Show>
+            <Show when={w().twoHanded}>
+              <Stat label="Хват" value="2 руки" />
+            </Show>
+          </>
+        )}
       </Show>
       <Show when={other()}>
-        <Show when={other()!.armor != null}>
-          <Stat label="Броня" value={String(other()!.armor ?? 0)} icon={<Shield size={13} />} />
-        </Show>
-        <Show when={other()!.covers}>
-          {(v) => <Stat label="Покрытие" value={v()} />}
-        </Show>
+        {(o) => (
+          <>
+            <Show when={o().armor != null}>
+              <Stat label="Броня" value={String(o().armor ?? 0)} icon={<Shield size={13} />} />
+            </Show>
+            <Show when={o().covers}>
+              {(v) => <Stat label="Покрытие" value={v()} />}
+            </Show>
+          </>
+        )}
       </Show>
       <Show when={item().notes}>
         {(v) => <Stat label="Особенности" value={v()} wide />}
@@ -357,10 +418,16 @@ function Stat(props: { label: string; value: string; icon?: JSX.Element; wide?: 
 }
 
 function categoryLabel(item: AnyItem): string {
-  const category = isWeapon(item)
-    ? (WEAPON_SUBCAT_RU[item.category] ?? item.category)
-    : (OTHER_CAT_RU[item.category] ?? item.category);
-  return item.subcategory ? `${category} · ${item.subcategory}` : category;
+  return withSubcategory(categoryName(item), item.subcategory);
+}
+
+function categoryName(item: AnyItem): string {
+  if (isWeapon(item)) return WEAPON_SUBCAT_RU[item.category] ?? item.category;
+  return OTHER_CAT_RU[item.category] ?? item.category;
+}
+
+function withSubcategory(category: string, subcategory: string | undefined): string {
+  return subcategory ? `${category} · ${subcategory}` : category;
 }
 
 function ItemRow(props: {
@@ -411,14 +478,21 @@ function ItemRow(props: {
   );
 }
 
+function weaponDamage(item: AnyItem): string | undefined {
+  if (!isWeapon(item)) return undefined;
+  return item.damage;
+}
+
 function EquipmentSubtitle(props: { item: AnyItem }): JSX.Element {
   return (
     <span class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-base-content/60">
-      <Show when={isWeapon(props.item) && props.item.damage}>
+      <Show when={weaponDamage(props.item)}>
+        {(damage) => (
         <span class="inline-flex items-center gap-1">
           <Crosshair size={12} aria-hidden="true" />
-          {(props.item as Weapon).damage}
+          {damage()}
         </span>
+        )}
       </Show>
       <span class="inline-flex items-center gap-1">
         <Package size={12} aria-hidden="true" />
