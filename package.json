@@ -1,0 +1,27 @@
+{
+  "name": "swade-character-creator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "lucide-solid": "^0.468.0",
+    "solid-js": "^1.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "autoprefixer": "^10.4.20",
+    "daisyui": "^4.12.14",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5",
+    "vite-plugin-pwa": "^0.21.1",
+    "vite-plugin-solid": "^2.11.0"
+  }
+}
