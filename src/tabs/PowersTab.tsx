@@ -200,11 +200,7 @@ export function PowersTab(): JSX.Element {
                         <Pin size={12} class="text-primary" />
                       </Show>
                       <span>{power.ru}</span>
-                      <Show when={power.source === 'dl'}>
-                        <Badge variant="info" outline>
-                          DL
-                        </Badge>
-                      </Show>
+                      <PowerSourceTag power={power} />
                     </div>
                     <PowerSubtitle power={power} showRank />
                   </button>
@@ -254,24 +250,11 @@ export function PowersTab(): JSX.Element {
                             class="flex flex-1 flex-col items-start gap-0.5 text-left"
                             onClick={() => setDrawerPower(p)}
                           >
-                            <div class="flex items-center gap-2 text-sm font-medium">
+                            <div class="text-sm font-medium">
                               <span>{p.ru}</span>
-                              <Show when={p.source === 'dl'}>
-                                <Badge variant="info" outline>
-                                  DL
-                                </Badge>
-                              </Show>
-                              <Show when={rankWarn}>
-                                <Badge variant="warning" outline>
-                                  ранг {RANK_RU[p.rank]}
-                                </Badge>
-                              </Show>
-                              <Show when={abWarn}>
-                                <Badge variant="warning" outline>
-                                  вне дара
-                                </Badge>
-                              </Show>
+                              <PowerSourceTag power={p} />
                             </div>
+                            <PowerWarningTags power={p} rankWarn={rankWarn} abWarn={abWarn} />
                             <PowerSubtitle power={p} />
                           </button>
                           <Button
@@ -353,6 +336,35 @@ export function PowersTab(): JSX.Element {
           )}
         </Show>
       </Drawer>
+    </div>
+  );
+}
+
+function PowerSourceTag(props: { power: Power }): JSX.Element {
+  return (
+    <Show when={props.power.source === 'dl'}>
+      <span class="ml-2 inline-block align-middle">
+        <Badge variant="info" outline>
+          DL
+        </Badge>
+      </span>
+    </Show>
+  );
+}
+
+function PowerWarningTags(props: { power: Power; rankWarn?: boolean; abWarn?: boolean }): JSX.Element {
+  return (
+    <div class="flex flex-wrap gap-1">
+      <Show when={props.rankWarn}>
+        <Badge variant="error" outline>
+          ранг {RANK_RU[props.power.rank]}
+        </Badge>
+      </Show>
+      <Show when={props.abWarn}>
+        <Badge variant="error" outline>
+          вне дара
+        </Badge>
+      </Show>
     </div>
   );
 }

@@ -10,11 +10,39 @@ export interface DrawerProps {
 
 const DRAWER_ANIMATION_MS = 250;
 
+let lockedDrawers = 0;
+let lockedScrollY = 0;
+
+function lockBodyScroll(): void {
+  if (lockedDrawers === 0) {
+    lockedScrollY = window.scrollY;
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${lockedScrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+  }
+  lockedDrawers += 1;
+}
+
+function unlockBodyScroll(): void {
+  lockedDrawers = Math.max(0, lockedDrawers - 1);
+  if (lockedDrawers > 0) return;
+
+  document.body.style.position = '';
+  document.body.style.top = '';
+  document.body.style.left = '';
+  document.body.style.right = '';
+  document.body.style.width = '';
+  window.scrollTo(0, lockedScrollY);
+}
+
 export function Drawer(props: DrawerProps): JSX.Element {
   const [mounted, setMounted] = createSignal(props.open);
   const [visible, setVisible] = createSignal(false);
   let closeTimer: ReturnType<typeof setTimeout> | undefined;
   let openFrame: number | undefined;
+  let bodyScrollLocked = false;
 
   const clearTimers = (): void => {
     if (closeTimer) clearTimeout(closeTimer);
@@ -32,21 +60,35 @@ export function Drawer(props: DrawerProps): JSX.Element {
     }, DRAWER_ANIMATION_MS);
   };
 
+  const setBodyScrollLocked = (locked: boolean): void => {
+    if (locked === bodyScrollLocked) return;
+    bodyScrollLocked = locked;
+    if (locked) lockBodyScroll();
+    else unlockBodyScroll();
+  };
+
   createEffect(() => {
     clearTimers();
 
     if (props.open) {
       setMounted(true);
+      setBodyScrollLocked(true);
       setVisible(false);
       openFrame = requestAnimationFrame(() => setVisible(true));
       return;
     }
 
     setVisible(false);
-    closeTimer = setTimeout(() => setMounted(false), DRAWER_ANIMATION_MS);
+    closeTimer = setTimeout(() => {
+      setMounted(false);
+      setBodyScrollLocked(false);
+    }, DRAWER_ANIMATION_MS);
   });
 
-  onCleanup(clearTimers);
+  onCleanup(() => {
+    clearTimers();
+    setBodyScrollLocked(false);
+  });
 
   return (
     <Show when={mounted()}>
