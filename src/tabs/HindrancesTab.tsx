@@ -15,6 +15,10 @@ function defaultSeverity(h: Hindrance): HindranceSeverity | undefined {
   return h.severityOptions[0];
 }
 
+function matchesSearch(item: Pick<Hindrance, 'ru' | 'originalName'>, query: string): boolean {
+  return query === '' || item.ru.toLowerCase().includes(query) || item.originalName?.toLowerCase().includes(query) === true;
+}
+
 export function HindrancesTab(): JSX.Element {
   const { state, actions } = useStore();
   const c = (): typeof state.character => state.character;
@@ -30,9 +34,7 @@ export function HindrancesTab(): JSX.Element {
   const visible = createMemo(() => {
     const dlOn = state.settings.deadlandsEnabled;
     const q = search().toLowerCase().trim();
-    return HINDRANCES.filter(
-      (h) => (dlOn || h.source !== 'dl') && (!q || h.ru.toLowerCase().includes(q)),
-    );
+    return HINDRANCES.filter((h) => (dlOn || h.source !== 'dl') && matchesSearch(h, q));
   });
 
   const available = createMemo(() => {

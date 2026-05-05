@@ -24,6 +24,7 @@ export interface Skill {
 export interface Hindrance {
   id: string;
   ru: string;
+  originalName?: string;
   source: Source;
   severityOptions: HindranceSeverity[];
   description: string;
@@ -58,6 +59,7 @@ export type EdgeRequirement =
 export interface Edge {
   id: string;
   ru: string;
+  originalName?: string;
   source: Source;
   category: EdgeCategory;
   requirements: EdgeRequirement[];
@@ -84,6 +86,7 @@ export type WeaponCategory = 'melee' | 'ranged' | 'ammo';
 export interface Weapon {
   id: string;
   ru: string;
+  originalName?: string;
   source: Source;
   isWeirdWest: boolean;
   category: WeaponCategory;
@@ -115,6 +118,7 @@ export type EquipmentCategory =
 export interface EquipmentItem {
   id: string;
   ru: string;
+  originalName?: string;
   source: Source;
   isWeirdWest: boolean;
   category: EquipmentCategory;

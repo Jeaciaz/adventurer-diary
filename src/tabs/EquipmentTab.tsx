@@ -96,12 +96,12 @@ function deadlandsOnlyAllowed(item: Pick<Weapon | EquipmentItem, 'source'>, only
   return !onlyDeadlands || item.source === 'dl';
 }
 
-function queryMatches(item: Pick<Weapon | EquipmentItem, 'ru'>, query: string): boolean {
-  return query === '' || item.ru.toLowerCase().includes(query);
+function queryMatches(item: Pick<Weapon | EquipmentItem, 'ru' | 'originalName'>, query: string): boolean {
+  return query === '' || item.ru.toLowerCase().includes(query) || item.originalName?.toLowerCase().includes(query) === true;
 }
 
 function matchesItemFilter(
-  item: Pick<Weapon | EquipmentItem, 'ru' | 'source'>,
+  item: Pick<Weapon | EquipmentItem, 'ru' | 'source' | 'originalName'>,
   query: string,
   onlyDeadlands: boolean,
   deadlandsEnabled: boolean,

@@ -26,6 +26,10 @@ const CATEGORY_RU: Record<EdgeCategory, string> = {
   'mad-scientist': 'Безумный учёный (DL)',
 };
 
+function matchesSearch(item: Pick<Edge, 'ru' | 'originalName'>, query: string): boolean {
+  return query === '' || item.ru.toLowerCase().includes(query) || item.originalName?.toLowerCase().includes(query) === true;
+}
+
 const ATTRIBUTE_RU = new Map(ATTRIBUTES.map((a) => [a.id, a.ru]));
 const REMOVED_SKILL_RU: Record<string, string> = {
   'akademicheskie-znaniia': 'Академические знания',
@@ -201,7 +205,7 @@ export function EdgesTab(): JSX.Element {
   const visibleEdges = createMemo(() => {
     const dlOn = state.settings.deadlandsEnabled;
     const q = search().toLowerCase().trim();
-    return EDGES.filter((e) => (dlOn || e.source !== 'dl') && (!q || e.ru.toLowerCase().includes(q)));
+    return EDGES.filter((e) => (dlOn || e.source !== 'dl') && matchesSearch(e, q));
   });
 
   const grouped = createMemo(() => {
