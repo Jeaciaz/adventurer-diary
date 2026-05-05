@@ -1,4 +1,4 @@
-import { createSignal, For, type JSX } from 'solid-js';
+import { createRoot, createSignal, For, type JSX } from 'solid-js';
 
 interface ToastEntry {
   id: number;
@@ -6,7 +6,7 @@ interface ToastEntry {
   variant: 'info' | 'error' | 'success';
 }
 
-const [toasts, setToasts] = createSignal<ToastEntry[]>([]);
+const [toasts, setToasts] = createRoot(() => createSignal<ToastEntry[]>([]));
 let nextId = 1;
 
 export function pushToast(text: string, variant: ToastEntry['variant'] = 'info'): void {

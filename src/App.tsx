@@ -13,24 +13,23 @@ import { PowersTab } from './tabs/PowersTab';
 
 type TabId = 'stats' | 'status' | 'edges' | 'hindrances' | 'equipment' | 'powers';
 
-const TABS: TabItem<TabId>[] = [
-  { id: 'stats', label: 'Параметры', icon: <User size={20} /> },
-  { id: 'status', label: 'Состояние', icon: <Activity size={20} /> },
-  { id: 'edges', label: 'Черты', icon: <Medal size={20} /> },
-  { id: 'hindrances', label: 'Изъяны', icon: <HeartCrack size={20} /> },
-  { id: 'equipment', label: 'Снаряжение', icon: <Sword size={20} /> },
-  { id: 'powers', label: 'Силы', icon: <WandSparkles size={20} /> },
-];
-
 export function App(): JSX.Element {
   const [tab, setTab] = createSignal<TabId>('stats');
   const [settingsOpen, setSettingsOpen] = createSignal(false);
+  const tabs: TabItem<TabId>[] = [
+    { id: 'stats', label: 'Параметры', icon: <User size={20} /> },
+    { id: 'status', label: 'Состояние', icon: <Activity size={20} /> },
+    { id: 'edges', label: 'Черты', icon: <Medal size={20} /> },
+    { id: 'hindrances', label: 'Изъяны', icon: <HeartCrack size={20} /> },
+    { id: 'equipment', label: 'Снаряжение', icon: <Sword size={20} /> },
+    { id: 'powers', label: 'Силы', icon: <WandSparkles size={20} /> },
+  ];
 
   return (
     <StoreProvider>
       <div class="flex min-h-screen flex-col">
         <TopBar onOpenSettings={() => setSettingsOpen(true)} />
-        <TopTabs items={TABS} active={tab()} onChange={setTab} />
+        <TopTabs items={tabs} active={tab()} onChange={setTab} />
         <main class="flex-1 overflow-y-auto px-3 pb-24 pt-3 sm:pb-6">
           <Switch>
             <Match when={tab() === 'stats'}>
@@ -53,7 +52,7 @@ export function App(): JSX.Element {
             </Match>
           </Switch>
         </main>
-        <BottomTabs items={TABS} active={tab()} onChange={setTab} />
+        <BottomTabs items={tabs} active={tab()} onChange={setTab} />
         <SettingsDrawer open={settingsOpen()} onClose={() => setSettingsOpen(false)} />
         <ToastHost />
       </div>
