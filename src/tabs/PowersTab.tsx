@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
-import { Clock, Crosshair, Pin, PinOff, Plus, Ruler, Trash2, Zap } from 'lucide-solid';
+import { Clock, Crosshair, Plus, Ruler, Trash2, Zap } from 'lucide-solid';
 import { useStore } from '../store/store';
 import { ARCANE_BACKGROUNDS, ARCANE_BACKGROUND_BY_ID, POWERS, POWER_BY_ID } from '../data';
 import { rankFromAdvances } from '../store/selectors';
@@ -98,8 +98,7 @@ function availablePowers(c: Character, deadlandsEnabled: boolean, allowed: Set<s
 }
 
 function compareSelectedPowers(a: SelectedPowerEntry, b: SelectedPowerEntry): number {
-  if (a.sel.pinned !== b.sel.pinned) return a.sel.pinned ? -1 : 1;
-  return a.sel.order - b.sel.order;
+  return a.sel.powerId.localeCompare(b.sel.powerId);
 }
 
 function selectedPowerEntries(c: Character): SelectedPowerEntry[] {
@@ -112,14 +111,6 @@ function selectedPowerEntries(c: Character): SelectedPowerEntry[] {
 
 function arcaneBackgroundWarn(c: Character, allowed: Set<string> | null, powerId: string): boolean {
   return allowed != null && c.abFilterEnabled && !allowed.has(powerId);
-}
-
-function pinActionLabel(pinned: boolean): string {
-  return pinned ? 'Открепить' : 'Закрепить';
-}
-
-function pinIcon(pinned: boolean): JSX.Element {
-  return pinned ? <PinOff size={14} /> : <Pin size={14} />;
 }
 
 function hasPower(c: Character, powerId: string): boolean {
@@ -197,23 +188,11 @@ export function PowersTab(): JSX.Element {
                     onClick={() => setDrawerPower(power)}
                   >
                     <div class="flex items-center gap-2 text-sm font-medium">
-                      <Show when={sel.pinned}>
-                        <Pin size={12} class="text-primary" />
-                      </Show>
                       <span>{power.ru}</span>
                       <PowerSourceTag power={power} />
                     </div>
                     <PowerSubtitle power={power} showRank />
                   </button>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    square
-                    aria-label={pinActionLabel(sel.pinned)}
-                    onClick={() => actions.togglePinPower(power.id)}
-                  >
-                    {pinIcon(sel.pinned)}
-                  </Button>
                   <Button
                     size="xs"
                     variant="ghost"
@@ -266,8 +245,6 @@ export function PowersTab(): JSX.Element {
                             onClick={() =>
                               actions.addPower({
                                 powerId: p.id,
-                                pinned: false,
-                                order: c().powers.length,
                               })
                             }
                           >
@@ -313,8 +290,6 @@ export function PowersTab(): JSX.Element {
                   onClick={() => {
                     actions.addPower({
                       powerId: p().id,
-                      pinned: false,
-                      order: c().powers.length,
                     });
                     setDrawerPower(null);
                   }}

@@ -125,11 +125,6 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
     removePower(powerId: string) {
       set('character', 'powers', (xs) => xs.filter((x) => x.powerId !== powerId));
     },
-    togglePinPower(powerId: string) {
-      set('character', 'powers', (xs) =>
-        xs.map((x) => (x.powerId === powerId ? { ...x, pinned: !x.pinned } : x)),
-      );
-    },
     setAbFilterEnabled(enabled: boolean) {
       set('character', 'abFilterEnabled', enabled);
     },

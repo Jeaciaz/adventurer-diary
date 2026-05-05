@@ -165,8 +165,6 @@ export interface SelectedEquipment {
 
 export interface SelectedPower {
   powerId: string;
-  pinned: boolean;
-  order: number;
 }
 
 export interface DerivedStats {
