@@ -46,6 +46,7 @@ const OTHER_CAT_RU: Record<string, string> = {
   'weird-tech': 'Странная техника',
   'ammo-supplies': 'Припасы',
   vehicle: 'Транспорт',
+  service: 'Услуги',
 };
 
 const MONEY_DELTAS = [-10, -5, -3, -2, -1, 1, 2, 3, 5, 10];

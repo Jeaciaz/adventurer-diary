@@ -57,6 +57,7 @@ const EQUIPMENT_CATEGORIES = new Set<string>([
   'weird-tech',
   'ammo-supplies',
   'vehicle',
+  'service',
 ]);
 const DIE_STEP_SET = new Set<string>(DIE_STEPS);
 

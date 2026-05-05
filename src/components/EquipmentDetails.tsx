@@ -21,6 +21,7 @@ const OTHER_CAT_RU: Record<string, string> = {
   'weird-tech': 'Странная техника',
   'ammo-supplies': 'Припасы',
   vehicle: 'Транспорт',
+  service: 'Услуги',
 };
 
 export function weaponItem(item: Weapon): WeaponItem {

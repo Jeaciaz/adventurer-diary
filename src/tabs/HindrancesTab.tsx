@@ -134,8 +134,15 @@ export function HindrancesTab(): JSX.Element {
                         DL
                       </Badge>
                     </Show>
+                  </div>
+                  <div class="text-xs opacity-60">
                     <For each={h.severityOptions}>
-                      {(s) => <Badge variant="ghost">{SEVERITY_RU[s]}</Badge>}
+                      {(s, i) => (
+                        <>
+                          <Show when={i() > 0}> · </Show>
+                          <span>{SEVERITY_RU[s]}</span>
+                        </>
+                      )}
                     </For>
                   </div>
                 </button>

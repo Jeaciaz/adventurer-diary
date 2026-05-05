@@ -109,7 +109,8 @@ export type EquipmentCategory =
   | 'electronics'
   | 'weird-tech'
   | 'ammo-supplies'
-  | 'vehicle';
+  | 'vehicle'
+  | 'service';
 
 export interface EquipmentItem {
   id: string;
