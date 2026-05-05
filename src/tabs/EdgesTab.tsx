@@ -1,10 +1,12 @@
 import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
 import { Plus, Trash2 } from 'lucide-solid';
 import { useStore } from '../store/store';
-import { ATTRIBUTES, BASE_SKILL_IDS, EDGES, EDGE_BY_ID, SKILL_BY_ID } from '../data';
+import { ATTRIBUTES, BASE_SKILL_IDS, EDGES, EDGE_BY_ID, EQUIPMENT_OTHER_BY_ID, POWER_BY_ID, SKILL_BY_ID, WEAPON_BY_ID } from '../data';
 import { dieIndex, edgeCap, rankFromAdvances } from '../store/selectors';
-import { Badge, Button, Card, Collapsible, Counter, Drawer, Input } from '../ui';
-import type { Character, DieStepOrNone, Edge, EdgeCategory, EdgeRequirement, Rank } from '../types';
+import { EquipmentDetails, otherItem, weaponItem, type AnyEquipmentItem } from '../components/EquipmentDetails';
+import { PowerDetails } from '../components/PowerDetails';
+import { Badge, Button, Card, Collapsible, Counter, Drawer, Input, RichText, type TextReference } from '../ui';
+import type { Character, DieStepOrNone, Edge, EdgeCategory, EdgeRequirement, Power, Rank } from '../types';
 
 const CATEGORY_RU: Record<EdgeCategory, string> = {
   background: 'Предыстория',
@@ -50,6 +52,34 @@ const RANK_RU: Record<Rank, string> = {
 };
 
 const RANK_ORDER: Rank[] = ['novice', 'seasoned', 'veteran', 'heroic', 'legendary'];
+
+type ReferenceTarget =
+  | { kind: 'edge'; item: Edge }
+  | { kind: 'equipment'; item: AnyEquipmentItem }
+  | { kind: 'power'; item: Power };
+
+type ReferenceTargetSetter = (target: ReferenceTarget) => void;
+
+function openEdgeReference(id: string, setTarget: ReferenceTargetSetter): void {
+  const edge = EDGE_BY_ID.get(id);
+  if (edge) setTarget({ kind: 'edge', item: edge });
+}
+
+function openPowerReference(id: string, setTarget: ReferenceTargetSetter): void {
+  const power = POWER_BY_ID.get(id);
+  if (power) setTarget({ kind: 'power', item: power });
+}
+
+function openEquipmentReference(id: string, setTarget: ReferenceTargetSetter): void {
+  const weapon = WEAPON_BY_ID.get(id);
+  if (weapon) {
+    setTarget({ kind: 'equipment', item: weaponItem(weapon) });
+    return;
+  }
+
+  const equipment = EQUIPMENT_OTHER_BY_ID.get(id);
+  if (equipment) setTarget({ kind: 'equipment', item: otherItem(equipment) });
+}
 
 function skillRequirementName(skillId: string): string {
   return SKILL_BY_ID.get(skillId)?.ru ?? REMOVED_SKILL_RU[skillId] ?? skillId;
@@ -156,6 +186,17 @@ export function EdgesTab(): JSX.Element {
   const c = (): typeof state.character => state.character;
   const [search, setSearch] = createSignal('');
   const [drawerEdge, setDrawerEdge] = createSignal<Edge | null>(null);
+  const [referenceTarget, setReferenceTarget] = createSignal<ReferenceTarget | null>(null);
+
+  const referenceOpeners: Record<TextReference['kind'], (id: string) => void> = {
+    edge: (id) => openEdgeReference(id, setReferenceTarget),
+    equipment: (id) => openEquipmentReference(id, setReferenceTarget),
+    power: (id) => openPowerReference(id, setReferenceTarget),
+  };
+
+  const openReference = (reference: TextReference): void => {
+    referenceOpeners[reference.kind](reference.id);
+  };
 
   const visibleEdges = createMemo(() => {
     const dlOn = state.settings.deadlandsEnabled;
@@ -271,22 +312,11 @@ export function EdgesTab(): JSX.Element {
       >
         <Show when={drawerEdge()}>
           {(e) => (
-            <div class="flex flex-col gap-3">
-              <div class="flex flex-wrap gap-1">
-                <Badge variant="primary" outline>
-                  {CATEGORY_RU[e().category]}
-                </Badge>
-                <Show when={e().source === 'dl'}>
-                  <Badge variant="info" outline>
-                    DL
-                  </Badge>
-                </Show>
-                <RequirementBadges requirements={e().requirements} character={c()} />
-              </div>
-              <p class="whitespace-pre-line text-sm leading-relaxed">{e().description}</p>
-              <Show when={e().translationNote}>
-                <p class="text-xs italic opacity-70">{e().translationNote}</p>
-              </Show>
+            <EdgeDetails
+              edge={e()}
+              character={c()}
+              onReference={openReference}
+              actions={
               <Show
                 when={!c().edges.some((x) => x.edgeId === e().id)}
                 fallback={
@@ -311,10 +341,82 @@ export function EdgesTab(): JSX.Element {
                   Добавить
                 </Button>
               </Show>
-            </div>
+              }
+            />
           )}
         </Show>
       </Drawer>
+      <Drawer
+        open={referenceTarget() != null}
+        onClose={() => setReferenceTarget(null)}
+        title={referenceTitle(referenceTarget())}
+      >
+        <Show when={referenceTarget()}>
+          {(target) => <ReferenceDetails target={target()} />}
+        </Show>
+      </Drawer>
+    </div>
+  );
+}
+
+function referenceTitle(target: ReferenceTarget | null): string {
+  if (target == null) return '';
+  return target.item.ru;
+}
+
+function ReferenceDetails(props: { target: ReferenceTarget }): JSX.Element {
+  if (props.target.kind === 'edge') {
+    return (
+      <EdgeDetails
+        edge={props.target.item}
+        character={null}
+        onReference={() => undefined}
+      />
+    );
+  }
+  if (props.target.kind === 'power') return <PowerDetails power={props.target.item} />;
+  return <EquipmentDetails item={props.target.item} />;
+}
+
+function EdgeDetails(props: {
+  edge: Edge;
+  character: Character | null;
+  onReference: (reference: TextReference) => void;
+  actions?: JSX.Element;
+}): JSX.Element {
+  return (
+    <div class="flex flex-col gap-3">
+      <div class="flex flex-wrap gap-1">
+        <Badge variant="primary" outline>
+          {CATEGORY_RU[props.edge.category]}
+        </Badge>
+        <Show when={props.edge.source === 'dl'}>
+          <Badge variant="info" outline>
+            DL
+          </Badge>
+        </Show>
+        <Show when={props.character}>
+          {(character) => (
+            <RequirementBadges requirements={props.edge.requirements} character={character()} />
+          )}
+        </Show>
+      </div>
+      <div>
+        <div class="mb-1 text-xs uppercase tracking-wide text-base-content/50">Кратко</div>
+        <p class="whitespace-pre-line text-sm leading-relaxed">
+          <RichText text={props.edge.description} onReference={props.onReference} />
+        </p>
+      </div>
+      <div>
+        <div class="mb-1 text-xs uppercase tracking-wide text-base-content/50">Полное описание</div>
+        <p class="whitespace-pre-line text-sm leading-relaxed text-base-content/85">
+          <RichText text={props.edge.fullDescription} onReference={props.onReference} />
+        </p>
+      </div>
+      <Show when={props.edge.translationNote}>
+        <p class="text-xs italic opacity-70">{props.edge.translationNote}</p>
+      </Show>
+      {props.actions}
     </div>
   );
 }

@@ -3,8 +3,10 @@ import solid from 'vite-plugin-solid';
 import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 
+const base = process.env.GITHUB_PAGES === 'true' ? '/adventurer-diary/' : '/';
+
 export default defineConfig({
-  base: process.env.GITHUB_PAGES === 'true' ? '/adventurer-diary/' : '/',
+  base,
   plugins: [
     solid(),
     VitePWA({
@@ -17,6 +19,8 @@ export default defineConfig({
         lang: 'ru',
         theme_color: '#0f172a',
         background_color: '#0f172a',
+        start_url: base,
+        scope: base,
         display: 'standalone',
         orientation: 'portrait',
         icons: [

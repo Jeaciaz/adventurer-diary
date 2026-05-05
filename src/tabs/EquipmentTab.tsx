@@ -1,7 +1,14 @@
 import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
-import { Coins, Crosshair, Dumbbell, Gauge, Package, Plus, Ruler, Shield, Target, Trash2 } from 'lucide-solid';
+import { Coins, Crosshair, Package, Plus, Trash2 } from 'lucide-solid';
 import { useStore } from '../store/store';
 import { EQUIPMENT_OTHER, EQUIPMENT_OTHER_BY_ID, WEAPONS, WEAPON_BY_ID } from '../data';
+import {
+  EquipmentDetails,
+  isWeaponItem,
+  otherItem,
+  weaponItem,
+  type AnyEquipmentItem,
+} from '../components/EquipmentDetails';
 import {
   Badge,
   Button,
@@ -14,25 +21,7 @@ import {
 } from '../ui';
 import type { EquipmentItem, Weapon } from '../types';
 
-type WeaponItem = Weapon & { _kind: 'weapon' };
-type OtherItem = EquipmentItem & { _kind: 'other' };
-type AnyItem = WeaponItem | OtherItem;
-
-function weaponItem(item: Weapon): WeaponItem {
-  return { ...item, _kind: 'weapon' };
-}
-
-function otherItem(item: EquipmentItem): OtherItem {
-  return { ...item, _kind: 'other' };
-}
-
-function isWeapon(i: AnyItem): i is WeaponItem {
-  return i._kind === 'weapon';
-}
-
-function isOther(i: AnyItem): i is OtherItem {
-  return i._kind === 'other';
-}
+type AnyItem = AnyEquipmentItem;
 
 function selectedItem(sel: { itemId: string; type: 'weapon' | 'other' }): AnyItem | null {
   if (sel.type === 'weapon') {
@@ -253,35 +242,24 @@ export function EquipmentTab(): JSX.Element {
       >
         <Show when={drawerItem()}>
           {(it) => (
-              <div class="flex flex-col gap-3">
-                <div class="flex flex-wrap gap-1">
-                  <Show when={it().source === 'dl'}>
-                  <Badge variant="info" outline>
-                    DL
-                  </Badge>
-                </Show>
-                <Show when={it().isWeirdWest}>
-                  <Badge variant="warning" outline>
-                      Weird West
-                    </Badge>
-                  </Show>
-                </div>
-              <ItemStats item={it()} />
-              <p class="whitespace-pre-line text-sm leading-relaxed">{it().description}</p>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  actions.addEquipment({
-                    itemId: it().id,
-                    quantity: 1,
-                    type: isWeapon(it()) ? 'weapon' : 'other',
-                  });
-                  setDrawerItem(null);
-                }}
-              >
-                Добавить
-              </Button>
-            </div>
+            <EquipmentDetails
+              item={it()}
+              actions={
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    actions.addEquipment({
+                      itemId: it().id,
+                      quantity: 1,
+                      type: isWeaponItem(it()) ? 'weapon' : 'other',
+                    });
+                    setDrawerItem(null);
+                  }}
+                >
+                  Добавить
+                </Button>
+              }
+            />
           )}
         </Show>
       </Drawer>
@@ -340,96 +318,6 @@ function ItemCategoryGroup(props: {
   );
 }
 
-function ItemStats(props: { item: AnyItem }): JSX.Element {
-  const item = (): AnyItem => props.item;
-  const weapon = (): WeaponItem | null => {
-    const current = item();
-    return isWeapon(current) ? current : null;
-  };
-  const other = (): OtherItem | null => {
-    const current = item();
-    return isOther(current) ? current : null;
-  };
-
-  return (
-    <dl class="grid grid-cols-2 overflow-hidden rounded-lg border border-base-300 text-sm sm:grid-cols-3">
-      <Stat label="Категория" value={categoryLabel(item())} />
-      <Stat label="Цена" value={`$${item().cost}`} icon={<Coins size={13} />} />
-      <Stat label="Вес" value={`${item().weight} кг`} icon={<Package size={13} />} />
-      <Show when={item().minStrength}>
-        {(v) => <Stat label="Требуемая мощь" value={v()} icon={<Dumbbell size={13} />} />}
-      </Show>
-      <Show when={weapon()}>
-        {(w) => (
-          <>
-            <Show when={w().damage}>
-              {(v) => <Stat label="Урон" value={v()} icon={<Crosshair size={13} />} />}
-            </Show>
-            <Show when={w().range}>
-              {(v) => <Stat label="Дистанция" value={v()} icon={<Ruler size={13} />} />}
-            </Show>
-            <Show when={w().rateOfFire}>
-              {(v) => <Stat label="Скорострельность" value={String(v())} icon={<Gauge size={13} />} />}
-            </Show>
-            <Show when={w().armorPiercing != null}>
-              <Stat label="ББ" value={String(w().armorPiercing ?? 0)} icon={<Target size={13} />} />
-            </Show>
-            <Show when={w().shots != null}>
-              <Stat label="Выстрелы" value={String(w().shots ?? 0)} icon={<Crosshair size={13} />} />
-            </Show>
-            <Show when={w().reload}>
-              {(v) => <Stat label="Перезарядка" value={v()} />}
-            </Show>
-            <Show when={w().twoHanded}>
-              <Stat label="Хват" value="2 руки" />
-            </Show>
-          </>
-        )}
-      </Show>
-      <Show when={other()}>
-        {(o) => (
-          <>
-            <Show when={o().armor != null}>
-              <Stat label="Броня" value={String(o().armor ?? 0)} icon={<Shield size={13} />} />
-            </Show>
-            <Show when={o().covers}>
-              {(v) => <Stat label="Покрытие" value={v()} />}
-            </Show>
-          </>
-        )}
-      </Show>
-      <Show when={item().notes}>
-        {(v) => <Stat label="Особенности" value={v()} wide />}
-      </Show>
-    </dl>
-  );
-}
-
-function Stat(props: { label: string; value: string; icon?: JSX.Element; wide?: boolean }): JSX.Element {
-  return (
-    <div class={[props.wide ? 'col-span-2 sm:col-span-3' : '', 'border-base-300 px-2 py-1.5 [&:not(:last-child)]:border-r'].join(' ')}>
-      <dt class="text-[10px] uppercase tracking-wide text-base-content/50">{props.label}</dt>
-      <dd class="flex items-center gap-1 break-words font-medium leading-tight">
-        {props.icon}
-        <span>{props.value}</span>
-      </dd>
-    </div>
-  );
-}
-
-function categoryLabel(item: AnyItem): string {
-  return withSubcategory(categoryName(item), item.subcategory);
-}
-
-function categoryName(item: AnyItem): string {
-  if (isWeapon(item)) return WEAPON_SUBCAT_RU[item.category] ?? item.category;
-  return OTHER_CAT_RU[item.category] ?? item.category;
-}
-
-function withSubcategory(category: string, subcategory: string | undefined): string {
-  return subcategory ? `${category} · ${subcategory}` : category;
-}
-
 function ItemRow(props: {
   item: AnyItem;
   onTap: (i: AnyItem) => void;
@@ -468,7 +356,7 @@ function ItemRow(props: {
           actions.addEquipment({
             itemId: props.item.id,
             quantity: 1,
-            type: isWeapon(props.item) ? 'weapon' : 'other',
+            type: isWeaponItem(props.item) ? 'weapon' : 'other',
           })
         }
       >
@@ -479,7 +367,7 @@ function ItemRow(props: {
 }
 
 function weaponDamage(item: AnyItem): string | undefined {
-  if (!isWeapon(item)) return undefined;
+  if (!isWeaponItem(item)) return undefined;
   return item.damage;
 }
 

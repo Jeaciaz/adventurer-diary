@@ -259,6 +259,7 @@ function isEdgeRequirement(value: unknown): value is EdgeRequirement {
 
 const edgeChecks: readonly ObjectCheck[] = [
   ...commonDataChecks,
+  hasString('fullDescription'),
   hasChecked('source', isSource),
   hasChecked('category', isEdgeCategory),
   hasChecked('requirements', (item) => isArrayOf(item, isEdgeRequirement)),

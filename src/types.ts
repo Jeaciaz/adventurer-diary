@@ -62,6 +62,7 @@ export interface Edge {
   category: EdgeCategory;
   requirements: EdgeRequirement[];
   description: string;
+  fullDescription: string;
   translationNote?: string;
 }
 

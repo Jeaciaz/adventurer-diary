@@ -9,6 +9,7 @@ export * from './Input';
 export * from './Modal';
 export * from './NumberStepper';
 export * from './RadioGroup';
+export * from './RichText';
 export * from './Select';
 export * from './Tabs';
 export * from './Toast';

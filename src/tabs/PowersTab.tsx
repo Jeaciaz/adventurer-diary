@@ -3,6 +3,7 @@ import { Clock, Crosshair, Pin, PinOff, Plus, Ruler, Trash2, Zap } from 'lucide-
 import { useStore } from '../store/store';
 import { ARCANE_BACKGROUNDS, ARCANE_BACKGROUND_BY_ID, POWERS, POWER_BY_ID } from '../data';
 import { rankFromAdvances } from '../store/selectors';
+import { PowerDetails } from '../components/PowerDetails';
 import {
   Badge,
   Button,
@@ -290,20 +291,9 @@ export function PowersTab(): JSX.Element {
       >
         <Show when={drawerPower()}>
           {(p) => (
-            <div class="flex flex-col gap-3">
-              <div class="flex flex-wrap gap-1">
-                <Show when={p().source === 'dl'}>
-                  <Badge variant="info" outline>
-                    DL
-                  </Badge>
-                </Show>
-              </div>
-              <PowerStats power={p()} />
-              <p class="text-sm text-base-content/80">{p().shortDescription}</p>
-              <p class="whitespace-pre-line text-sm leading-relaxed">{p().fullDescription}</p>
-              <Show when={p().translationNote}>
-                <p class="text-xs italic opacity-70">{p().translationNote}</p>
-              </Show>
+            <PowerDetails
+              power={p()}
+              actions={
               <Show
                 when={!hasPower(c(), p().id)}
                 fallback={
@@ -332,7 +322,8 @@ export function PowersTab(): JSX.Element {
                   Добавить
                 </Button>
               </Show>
-            </div>
+              }
+            />
           )}
         </Show>
       </Drawer>
@@ -395,29 +386,6 @@ function PowerSubtitle(props: { power: Power; showRank?: boolean }): JSX.Element
         <Clock size={12} aria-hidden="true" />
         {props.power.duration}
       </span>
-    </div>
-  );
-}
-
-function PowerStats(props: { power: Power }): JSX.Element {
-  return (
-    <dl class="grid grid-cols-2 overflow-hidden rounded-lg border border-base-300 text-sm sm:grid-cols-4">
-      <PowerStat label="Ранг" value={RANK_RU[props.power.rank]} />
-      <PowerStat label="Пункты силы" value={props.power.powerPoints} icon={<Zap size={13} />} />
-      <PowerStat label="Дистанция" value={props.power.range} icon={<Ruler size={13} />} />
-      <PowerStat label="Длительность" value={props.power.duration} icon={<Clock size={13} />} />
-    </dl>
-  );
-}
-
-function PowerStat(props: { label: string; value: string; icon?: JSX.Element }): JSX.Element {
-  return (
-    <div class="border-base-300 px-2 py-1.5 [&:not(:last-child)]:border-r">
-      <dt class="text-[10px] uppercase tracking-wide text-base-content/50">{props.label}</dt>
-      <dd class="flex items-center gap-1 break-words font-medium leading-tight">
-        {props.icon}
-        <span>{props.value}</span>
-      </dd>
     </div>
   );
 }
