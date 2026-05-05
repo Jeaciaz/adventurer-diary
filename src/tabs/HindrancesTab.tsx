@@ -19,6 +19,19 @@ function matchesSearch(item: Pick<Hindrance, 'ru' | 'originalName'>, query: stri
   return query === '' || item.ru.toLowerCase().includes(query) || item.originalName?.toLowerCase().includes(query) === true;
 }
 
+function HindranceTitle(props: { hindrance: Hindrance }): JSX.Element {
+  return (
+    <div class="flex items-center gap-2 text-sm font-medium">
+      <span>{props.hindrance.ru}</span>
+      <Show when={props.hindrance.source === 'dl'}>
+        <Badge variant="info" outline>
+          DL
+        </Badge>
+      </Show>
+    </div>
+  );
+}
+
 export function HindrancesTab(): JSX.Element {
   const { state, actions } = useStore();
   const c = (): typeof state.character => state.character;
@@ -75,14 +88,7 @@ export function HindrancesTab(): JSX.Element {
                       class="flex flex-1 flex-col items-start gap-1 text-left"
                       onClick={() => setDrawerHindrance(h)}
                     >
-                      <div class="flex items-center gap-2 text-sm font-medium">
-                        <span>{h.ru}</span>
-                        <Show when={h.source === 'dl'}>
-                          <Badge variant="info" outline>
-                            DL
-                          </Badge>
-                        </Show>
-                      </div>
+                      <HindranceTitle hindrance={h} />
                     </button>
                     <Show when={h.severityOptions.length > 1}>
                       <RadioGroup<HindranceSeverity>
@@ -129,14 +135,7 @@ export function HindrancesTab(): JSX.Element {
                   class="flex flex-1 flex-col items-start gap-0.5 text-left"
                   onClick={() => setDrawerHindrance(h)}
                 >
-                  <div class="flex items-center gap-2 text-sm font-medium">
-                    <span>{h.ru}</span>
-                    <Show when={h.source === 'dl'}>
-                      <Badge variant="info" outline>
-                        DL
-                      </Badge>
-                    </Show>
-                  </div>
+                  <HindranceTitle hindrance={h} />
                   <div class="text-xs opacity-60">
                     <For each={h.severityOptions}>
                       {(s, i) => (

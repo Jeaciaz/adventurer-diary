@@ -1,37 +1,52 @@
+import * as v from 'valibot';
 import type {
   ArcaneBackground,
   Attribute,
-  AttributeId,
   CustomSkill,
   DieStep,
   DieStepOrNone,
   Edge,
-  EdgeCategory,
-  EdgeRequirement,
-  EquipmentCategory,
   EquipmentItem,
   Hindrance,
-  HindranceSeverity,
   Power,
-  Rank,
   SelectedEdge,
   SelectedEquipment,
   SelectedHindrance,
   SelectedPower,
   Skill,
-  Source,
   Weapon,
-  WeaponCategory,
 } from './types';
-import { DIE_STEPS } from './types';
 
-type ObjectCheck = (value: object) => boolean;
+export function objectProp(value: object, key: string): unknown {
+  return Object.getOwnPropertyDescriptor(value, key)?.value;
+}
 
-const ATTRIBUTE_IDS = new Set<string>(['agility', 'smarts', 'spirit', 'strength', 'vigor']);
-const RANKS = new Set<string>(['novice', 'seasoned', 'veteran', 'heroic', 'legendary']);
-const SOURCES = new Set<string>(['core', 'dl']);
-const HINDRANCE_SEVERITIES = new Set<string>(['minor', 'major']);
-const EDGE_CATEGORIES = new Set<string>([
+export function isObjectRecord(value: unknown): value is object {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function arrayItems(value: unknown): readonly unknown[] | null {
+  return Array.isArray(value) ? value : null;
+}
+
+export function isString(value: unknown): value is string {
+  return typeof value === 'string';
+}
+
+export function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+export function isBoolean(value: unknown): value is boolean {
+  return typeof value === 'boolean';
+}
+
+const attributeIdSchema = v.picklist(['agility', 'smarts', 'spirit', 'strength', 'vigor']);
+const dieStepSchema = v.picklist(['d4', 'd6', 'd8', 'd10', 'd12']);
+const rankSchema = v.picklist(['novice', 'seasoned', 'veteran', 'heroic', 'legendary']);
+const sourceSchema = v.picklist(['core', 'dl']);
+const hindranceSeveritySchema = v.picklist(['minor', 'major']);
+const edgeCategorySchema = v.picklist([
   'background',
   'combat',
   'leadership',
@@ -48,8 +63,8 @@ const EDGE_CATEGORIES = new Set<string>([
   'chi-master',
   'mad-scientist',
 ]);
-const WEAPON_CATEGORIES = new Set<string>(['melee', 'ranged', 'ammo']);
-const EQUIPMENT_CATEGORIES = new Set<string>([
+const weaponCategorySchema = v.picklist(['melee', 'ranged', 'ammo']);
+const equipmentCategorySchema = v.picklist([
   'armor',
   'mount',
   'gear',
@@ -59,69 +74,16 @@ const EQUIPMENT_CATEGORIES = new Set<string>([
   'vehicle',
   'service',
 ]);
-const DIE_STEP_SET = new Set<string>(DIE_STEPS);
+const finiteNumberSchema = v.pipe(v.number(), v.finite());
+const dieStepOrNoneSchema = v.nullable(dieStepSchema);
+const nullableStringSchema = v.nullable(v.string());
 
-export function objectProp(value: object, key: string): unknown {
-  return Object.getOwnPropertyDescriptor(value, key)?.value;
+function guardFromSchema<T>(schema: v.GenericSchema<unknown, T>) {
+  return (value: unknown): value is T => v.safeParse(schema, value).success;
 }
 
-export function isObjectRecord(value: unknown): value is object {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-export function arrayItems(value: unknown): readonly unknown[] | null {
-  if (!Array.isArray(value)) return null;
-  const items: readonly unknown[] = value;
-  return items;
-}
-
-export function isString(value: unknown): value is string {
-  return typeof value === 'string';
-}
-
-export function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
-}
-
-export function isBoolean(value: unknown): value is boolean {
-  return typeof value === 'boolean';
-}
-
-function isAttributeId(value: unknown): value is AttributeId {
-  return isString(value) && ATTRIBUTE_IDS.has(value);
-}
-
-export function isDieStep(value: unknown): value is DieStep {
-  return isString(value) && DIE_STEP_SET.has(value);
-}
-
-export function isDieStepOrNone(value: unknown): value is DieStepOrNone {
-  return value === null || isDieStep(value);
-}
-
-function isRank(value: unknown): value is Rank {
-  return isString(value) && RANKS.has(value);
-}
-
-function isSource(value: unknown): value is Source {
-  return isString(value) && SOURCES.has(value);
-}
-
-function isHindranceSeverity(value: unknown): value is HindranceSeverity {
-  return isString(value) && HINDRANCE_SEVERITIES.has(value);
-}
-
-function isEdgeCategory(value: unknown): value is EdgeCategory {
-  return isString(value) && EDGE_CATEGORIES.has(value);
-}
-
-function isWeaponCategory(value: unknown): value is WeaponCategory {
-  return isString(value) && WEAPON_CATEGORIES.has(value);
-}
-
-function isEquipmentCategory(value: unknown): value is EquipmentCategory {
-  return isString(value) && EQUIPMENT_CATEGORIES.has(value);
-}
+export const isDieStep = guardFromSchema<DieStep>(dieStepSchema);
+export const isDieStepOrNone = guardFromSchema<DieStepOrNone>(dieStepOrNoneSchema);
 
 function isArrayOf<T>(value: unknown, guard: (item: unknown) => item is T): value is T[] {
   const items = arrayItems(value);
@@ -137,265 +99,156 @@ export function checkedArray<T>(
   throw new Error(`${label} has invalid shape`);
 }
 
-function requiredProp(value: object, key: string, guard: (item: unknown) => boolean): boolean {
-  return guard(objectProp(value, key));
-}
+const attributeSchema = v.object({
+  id: attributeIdSchema,
+  ru: v.string(),
+  description: v.string(),
+});
 
-function optionalProp(value: object, key: string, guard: (item: unknown) => boolean): boolean {
-  const prop = objectProp(value, key);
-  return prop === undefined || guard(prop);
-}
+export const isAttribute = guardFromSchema<Attribute>(attributeSchema);
 
-function optionalNullableProp(value: object, key: string, guard: (item: unknown) => boolean): boolean {
-  const prop = objectProp(value, key);
-  return prop === undefined || prop === null || guard(prop);
-}
+const skillSchema = v.object({
+  id: v.string(),
+  ru: v.string(),
+  linkedAttribute: attributeIdSchema,
+  isBase: v.boolean(),
+  description: v.string(),
+});
 
-function allChecks(value: object, checks: readonly ObjectCheck[]): boolean {
-  return checks.every((check) => check(value));
-}
+export const isSkill = guardFromSchema<Skill>(skillSchema);
 
-function objectMatches(value: unknown, checks: readonly ObjectCheck[]): value is object {
-  return isObjectRecord(value) && allChecks(value, checks);
-}
+const hindranceSchema = v.object({
+  id: v.string(),
+  ru: v.string(),
+  originalName: v.optional(v.string()),
+  source: sourceSchema,
+  severityOptions: v.array(hindranceSeveritySchema),
+  description: v.string(),
+  translationNote: v.optional(v.string()),
+});
 
-function checkAll(checks: readonly ObjectCheck[]): ObjectCheck {
-  return (value) => allChecks(value, checks);
-}
+export const isHindrance = guardFromSchema<Hindrance>(hindranceSchema);
 
-function hasChecked(key: string, guard: (item: unknown) => boolean): ObjectCheck {
-  return (value) => requiredProp(value, key, guard);
-}
-
-function hasString(key: string): ObjectCheck {
-  return hasChecked(key, isString);
-}
-
-function hasOptionalString(key: string): ObjectCheck {
-  return (value) => optionalProp(value, key, isString);
-}
-
-function hasOptionalNullableString(key: string): ObjectCheck {
-  return (value) => optionalNullableProp(value, key, isString);
-}
-
-function hasNumber(key: string): ObjectCheck {
-  return hasChecked(key, isFiniteNumber);
-}
-
-function hasOptionalNumber(key: string): ObjectCheck {
-  return (value) => optionalProp(value, key, isFiniteNumber);
-}
-
-function hasOptionalNullableNumber(key: string): ObjectCheck {
-  return (value) => optionalNullableProp(value, key, isFiniteNumber);
-}
-
-function hasBoolean(key: string): ObjectCheck {
-  return hasChecked(key, isBoolean);
-}
-
-function hasOptionalBoolean(key: string): ObjectCheck {
-  return (value) => optionalProp(value, key, isBoolean);
-}
-
-const commonDataChecks: readonly ObjectCheck[] = [
-  hasString('id'),
-  hasString('ru'),
-  hasString('description'),
-];
-
-const attributeChecks: readonly ObjectCheck[] = [
-  hasChecked('id', isAttributeId),
-  hasString('ru'),
-  hasString('description'),
-];
-
-export function isAttribute(value: unknown): value is Attribute {
-  return objectMatches(value, attributeChecks);
-}
-
-const skillChecks: readonly ObjectCheck[] = [
-  ...commonDataChecks,
-  hasChecked('linkedAttribute', isAttributeId),
-  hasChecked('isBase', isBoolean),
-];
-
-export function isSkill(value: unknown): value is Skill {
-  return objectMatches(value, skillChecks);
-}
-
-const hindranceChecks: readonly ObjectCheck[] = [
-  ...commonDataChecks,
-  hasChecked('source', isSource),
-  hasChecked('severityOptions', (item) => isArrayOf(item, isHindranceSeverity)),
-  hasOptionalString('translationNote'),
-];
-
-export function isHindrance(value: unknown): value is Hindrance {
-  return objectMatches(value, hindranceChecks);
-}
-
-const edgeRequirementChecks = new Map<string, ObjectCheck>([
-  ['rank', checkAll([hasChecked('value', isRank)])],
-  ['attribute', checkAll([hasChecked('attribute', isAttributeId), hasChecked('minDie', isDieStep)])],
-  ['skill', checkAll([hasString('skillId'), hasChecked('minDie', isDieStep)])],
-  ['edge', checkAll([hasString('edgeId')])],
-  ['wildCard', () => true],
-  ['other', checkAll([hasString('description')])],
+const edgeRequirementSchema = v.variant('type', [
+  v.object({ type: v.literal('rank'), value: rankSchema }),
+  v.object({ type: v.literal('attribute'), attribute: attributeIdSchema, minDie: dieStepSchema }),
+  v.object({ type: v.literal('skill'), skillId: v.string(), minDie: dieStepSchema }),
+  v.object({ type: v.literal('edge'), edgeId: v.string() }),
+  v.object({ type: v.literal('wildCard') }),
+  v.object({ type: v.literal('other'), description: v.string() }),
 ]);
 
-const invalidObjectCheck: ObjectCheck = () => false;
+const edgeSchema = v.object({
+  id: v.string(),
+  ru: v.string(),
+  originalName: v.optional(v.string()),
+  source: sourceSchema,
+  category: edgeCategorySchema,
+  requirements: v.array(edgeRequirementSchema),
+  description: v.string(),
+  fullDescription: v.string(),
+  translationNote: v.optional(v.string()),
+});
 
-function edgeRequirementCheck(value: object): ObjectCheck {
-  const type = objectProp(value, 'type');
-  if (!isString(type)) return invalidObjectCheck;
-  return edgeRequirementChecks.get(type) ?? invalidObjectCheck;
-}
+export const isEdge = guardFromSchema<Edge>(edgeSchema);
 
-function isEdgeRequirement(value: unknown): value is EdgeRequirement {
-  if (!isObjectRecord(value)) return false;
-  return edgeRequirementCheck(value)(value);
-}
+const powerSchema = v.object({
+  id: v.string(),
+  ru: v.string(),
+  source: sourceSchema,
+  rank: rankSchema,
+  powerPoints: v.string(),
+  range: v.string(),
+  duration: v.string(),
+  shortDescription: v.string(),
+  fullDescription: v.string(),
+  translationNote: v.optional(v.string()),
+});
 
-const edgeChecks: readonly ObjectCheck[] = [
-  ...commonDataChecks,
-  hasString('fullDescription'),
-  hasChecked('source', isSource),
-  hasChecked('category', isEdgeCategory),
-  hasChecked('requirements', (item) => isArrayOf(item, isEdgeRequirement)),
-  hasOptionalString('translationNote'),
-];
+export const isPower = guardFromSchema<Power>(powerSchema);
 
-export function isEdge(value: unknown): value is Edge {
-  return objectMatches(value, edgeChecks);
-}
+const equipmentBaseSchema = {
+  id: v.string(),
+  ru: v.string(),
+  originalName: v.optional(v.string()),
+  source: sourceSchema,
+  isWeirdWest: v.boolean(),
+  cost: finiteNumberSchema,
+  weight: finiteNumberSchema,
+  description: v.string(),
+  subcategory: v.optional(v.string()),
+  notes: v.optional(v.string()),
+};
 
-const powerChecks: readonly ObjectCheck[] = [
-  hasString('id'),
-  hasString('ru'),
-  hasChecked('source', isSource),
-  hasChecked('rank', isRank),
-  hasString('powerPoints'),
-  hasString('range'),
-  hasString('duration'),
-  hasString('shortDescription'),
-  hasString('fullDescription'),
-  hasOptionalString('translationNote'),
-];
+const weaponSchema = v.object({
+  ...equipmentBaseSchema,
+  category: weaponCategorySchema,
+  minStrength: dieStepOrNoneSchema,
+  damage: v.optional(v.string()),
+  range: v.optional(nullableStringSchema),
+  rateOfFire: v.optional(v.nullable(finiteNumberSchema)),
+  armorPiercing: v.optional(finiteNumberSchema),
+  shots: v.optional(v.nullable(finiteNumberSchema)),
+  reload: v.optional(v.string()),
+  twoHanded: v.optional(v.boolean()),
+});
 
-export function isPower(value: unknown): value is Power {
-  return objectMatches(value, powerChecks);
-}
+export const isWeapon = guardFromSchema<Weapon>(weaponSchema);
 
-const equipmentBaseChecks: readonly ObjectCheck[] = [
-  hasString('id'),
-  hasString('ru'),
-  hasBoolean('isWeirdWest'),
-  hasNumber('cost'),
-  hasNumber('weight'),
-  hasString('description'),
-  hasOptionalString('subcategory'),
-  hasOptionalString('notes'),
-];
+const equipmentItemSchema = v.object({
+  ...equipmentBaseSchema,
+  category: equipmentCategorySchema,
+  armor: v.optional(v.nullable(finiteNumberSchema)),
+  minStrength: v.optional(dieStepOrNoneSchema),
+  covers: v.optional(nullableStringSchema),
+});
 
-const weaponChecks: readonly ObjectCheck[] = [
-  ...equipmentBaseChecks,
-  hasChecked('source', isSource),
-  hasChecked('category', isWeaponCategory),
-  hasChecked('minStrength', isDieStepOrNone),
-  hasOptionalString('damage'),
-  hasOptionalNullableString('range'),
-  hasOptionalNullableNumber('rateOfFire'),
-  hasOptionalNumber('armorPiercing'),
-  hasOptionalNullableNumber('shots'),
-  hasOptionalString('reload'),
-  hasOptionalBoolean('twoHanded'),
-];
+export const isEquipmentItem = guardFromSchema<EquipmentItem>(equipmentItemSchema);
 
-export function isWeapon(value: unknown): value is Weapon {
-  return objectMatches(value, weaponChecks);
-}
+const arcaneBackgroundSchema = v.object({
+  id: v.string(),
+  ru: v.string(),
+  source: sourceSchema,
+  skillId: nullableStringSchema,
+  skillRu: nullableStringSchema,
+  startingPowers: finiteNumberSchema,
+  startingPowerPoints: finiteNumberSchema,
+  allowedPowers: v.array(v.string()),
+  description: v.string(),
+  trapping: v.optional(v.string()),
+  translationNote: v.optional(v.string()),
+});
 
-const equipmentItemChecks: readonly ObjectCheck[] = [
-  ...equipmentBaseChecks,
-  hasChecked('source', isSource),
-  hasChecked('category', isEquipmentCategory),
-  hasOptionalNullableNumber('armor'),
-  (item) => optionalNullableProp(item, 'minStrength', isDieStep),
-  hasOptionalNullableString('covers'),
-];
+export const isArcaneBackground = guardFromSchema<ArcaneBackground>(arcaneBackgroundSchema);
 
-export function isEquipmentItem(value: unknown): value is EquipmentItem {
-  return objectMatches(value, equipmentItemChecks);
-}
+const customSkillSchema = v.object({
+  id: v.string(),
+  name: v.string(),
+  linkedAttribute: attributeIdSchema,
+  die: dieStepOrNoneSchema,
+});
 
-function isNullableString(value: unknown): value is string | null {
-  return value === null || isString(value);
-}
+export const isCustomSkill = guardFromSchema<CustomSkill>(customSkillSchema);
 
-const arcaneBackgroundChecks: readonly ObjectCheck[] = [
-  hasString('id'),
-  hasString('ru'),
-  hasChecked('source', isSource),
-  hasChecked('skillId', isNullableString),
-  hasChecked('skillRu', isNullableString),
-  hasNumber('startingPowers'),
-  hasNumber('startingPowerPoints'),
-  hasChecked('allowedPowers', (item) => isArrayOf(item, isString)),
-  hasString('description'),
-  hasOptionalString('trapping'),
-  hasOptionalString('translationNote'),
-];
+const selectedHindranceSchema = v.object({
+  hindranceId: v.string(),
+  severity: hindranceSeveritySchema,
+});
 
-export function isArcaneBackground(value: unknown): value is ArcaneBackground {
-  return objectMatches(value, arcaneBackgroundChecks);
-}
+export const isSelectedHindrance = guardFromSchema<SelectedHindrance>(selectedHindranceSchema);
 
-const customSkillChecks: readonly ObjectCheck[] = [
-  hasString('id'),
-  hasString('name'),
-  hasChecked('linkedAttribute', isAttributeId),
-  hasChecked('die', isDieStepOrNone),
-];
+const selectedEdgeSchema = v.object({ edgeId: v.string() });
 
-export function isCustomSkill(value: unknown): value is CustomSkill {
-  return objectMatches(value, customSkillChecks);
-}
+export const isSelectedEdge = guardFromSchema<SelectedEdge>(selectedEdgeSchema);
 
-const selectedHindranceChecks: readonly ObjectCheck[] = [
-  hasString('hindranceId'),
-  hasChecked('severity', isHindranceSeverity),
-];
+const selectedEquipmentSchema = v.object({
+  itemId: v.string(),
+  quantity: finiteNumberSchema,
+  type: v.picklist(['weapon', 'other']),
+});
 
-export function isSelectedHindrance(value: unknown): value is SelectedHindrance {
-  return objectMatches(value, selectedHindranceChecks);
-}
+export const isSelectedEquipment = guardFromSchema<SelectedEquipment>(selectedEquipmentSchema);
 
-export function isSelectedEdge(value: unknown): value is SelectedEdge {
-  return objectMatches(value, [hasString('edgeId')]);
-}
+const selectedPowerSchema = v.object({ powerId: v.string() });
 
-function isEquipmentType(value: unknown): value is SelectedEquipment['type'] {
-  return value === 'weapon' || value === 'other';
-}
-
-const selectedEquipmentChecks: readonly ObjectCheck[] = [
-  hasString('itemId'),
-  hasNumber('quantity'),
-  hasChecked('type', isEquipmentType),
-];
-
-export function isSelectedEquipment(value: unknown): value is SelectedEquipment {
-  return objectMatches(value, selectedEquipmentChecks);
-}
-
-const selectedPowerChecks: readonly ObjectCheck[] = [
-  hasString('powerId'),
-  hasBoolean('pinned'),
-  hasNumber('order'),
-];
-
-export function isSelectedPower(value: unknown): value is SelectedPower {
-  return objectMatches(value, selectedPowerChecks);
-}
+export const isSelectedPower = guardFromSchema<SelectedPower>(selectedPowerSchema);
