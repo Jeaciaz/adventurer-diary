@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 import type {
   ArcaneBackground,
+  CustomHindrance,
   Attribute,
   CustomSkill,
   DieStep,
@@ -229,6 +230,14 @@ const customSkillSchema = v.object({
 });
 
 export const isCustomSkill = guardFromSchema<CustomSkill>(customSkillSchema);
+
+const customHindranceSchema = v.object({
+  id: v.string(),
+  name: v.string(),
+  severity: hindranceSeveritySchema,
+});
+
+export const isCustomHindrance = guardFromSchema<CustomHindrance>(customHindranceSchema);
 
 const selectedHindranceSchema = v.object({
   hindranceId: v.string(),

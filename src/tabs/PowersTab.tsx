@@ -4,6 +4,7 @@ import { useStore } from '../store/store';
 import { ARCANE_BACKGROUNDS, ARCANE_BACKGROUND_BY_ID, POWERS, POWER_BY_ID } from '../data';
 import { rankFromAdvances } from '../store/selectors';
 import { PowerDetails } from '../components/PowerDetails';
+import { PowerIcon } from '../components/PowerIcon';
 import {
   Badge,
   Button,
@@ -265,6 +266,11 @@ export function PowersTab(): JSX.Element {
         open={drawerPower() != null}
         onClose={() => setDrawerPower(null)}
         title={drawerPower()?.ru ?? ''}
+        decoration={
+          <Show when={drawerPower()}>
+            {(p) => <PowerIcon id={p().id} class="h-40 w-40 sm:h-48 sm:w-48" />}
+          </Show>
+        }
       >
         <Show when={drawerPower()}>
           {(p) => (

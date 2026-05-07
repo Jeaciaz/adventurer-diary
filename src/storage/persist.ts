@@ -3,6 +3,7 @@ import type { AppSettings, Character } from '../types';
 import {
   arrayItems,
   isBoolean,
+  isCustomHindrance,
   isCustomSkill,
   isDieStep,
   isDieStepOrNone,
@@ -204,6 +205,7 @@ function mergeCharacter(value: unknown): Character {
     skills: parseSkills(propFrom(value, 'skills')),
     customSkills: parseArray(propFrom(value, 'customSkills'), isCustomSkill),
     hindrances: parseArray(propFrom(value, 'hindrances'), isSelectedHindrance),
+    customHindrances: parseArray(propFrom(value, 'customHindrances'), isCustomHindrance),
     edges: parseArray(propFrom(value, 'edges'), isSelectedEdge),
     equipment: parseArray(propFrom(value, 'equipment'), isSelectedEquipment),
     arcaneBackgroundId: nullableStringField(value, 'arcaneBackgroundId', defaultCharacter.arcaneBackgroundId),

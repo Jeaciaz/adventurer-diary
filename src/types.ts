@@ -158,6 +158,12 @@ export interface SelectedHindrance {
   severity: HindranceSeverity;
 }
 
+export interface CustomHindrance {
+  id: string;
+  name: string;
+  severity: HindranceSeverity;
+}
+
 export interface SelectedEdge {
   edgeId: string;
 }
@@ -184,6 +190,7 @@ export interface Character {
   skills: Record<string, DieStepOrNone>;
   customSkills: CustomSkill[];
   hindrances: SelectedHindrance[];
+  customHindrances: CustomHindrance[];
   edges: SelectedEdge[];
   equipment: SelectedEquipment[];
   arcaneBackgroundId: string | null;

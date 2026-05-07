@@ -5,6 +5,7 @@ export interface DrawerProps {
   open: boolean;
   onClose: () => void;
   title?: string;
+  decoration?: JSX.Element;
   children: JSX.Element;
 }
 
@@ -112,7 +113,7 @@ export function Drawer(props: DrawerProps): JSX.Element {
             visible() ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0',
           ].join(' ')}
         >
-          <div class="sticky top-0 flex items-start justify-between gap-3 border-b border-base-300 bg-base-200/95 px-4 py-3 backdrop-blur">
+          <div class="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-base-300 bg-base-200/95 px-4 py-3 backdrop-blur">
             <h2 class="text-lg font-semibold">{props.title}</h2>
             <button
               type="button"
@@ -123,7 +124,17 @@ export function Drawer(props: DrawerProps): JSX.Element {
               <X size={18} />
             </button>
           </div>
-          <div class="px-4 py-3">{props.children}</div>
+          <div class="relative px-4 py-3">
+            <Show when={props.decoration}>
+              <div
+                class="pointer-events-none absolute left-2 top-2 text-white opacity-[0.08]"
+                aria-hidden="true"
+              >
+                {props.decoration}
+              </div>
+            </Show>
+            {props.children}
+          </div>
         </div>
       </div>
     </Show>

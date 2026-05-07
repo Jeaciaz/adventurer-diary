@@ -32,16 +32,30 @@ function HindranceTitle(props: { hindrance: Hindrance }): JSX.Element {
   );
 }
 
+function makeCustomHindranceId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `custom-hindrance-${Date.now()}`;
+}
+
 export function HindrancesTab(): JSX.Element {
   const { state, actions } = useStore();
   const c = (): typeof state.character => state.character;
   const [search, setSearch] = createSignal('');
   const [drawerHindrance, setDrawerHindrance] = createSignal<Hindrance | null>(null);
+  const [customName, setCustomName] = createSignal('');
+  const [customSeverity, setCustomSeverity] = createSignal<HindranceSeverity>('minor');
 
   const addHindrance = (h: Hindrance): void => {
     const severity = defaultSeverity(h);
     if (severity == null) return;
     actions.addHindrance({ hindranceId: h.id, severity });
+  };
+
+  const addCustomHindrance = (): void => {
+    const name = customName().trim();
+    if (name === '') return;
+    actions.addCustomHindrance({ id: makeCustomHindranceId(), name, severity: customSeverity() });
+    setCustomName('');
+    setCustomSeverity('minor');
   };
 
   const visible = createMemo(() => {
@@ -73,10 +87,40 @@ export function HindrancesTab(): JSX.Element {
       <Card>
         <div class="text-xs uppercase opacity-60">Выбранные</div>
         <Show
-          when={c().hindrances.length > 0}
+          when={c().hindrances.length + c().customHindrances.length > 0}
           fallback={<div class="mt-2 text-sm opacity-60">Ещё не выбраны.</div>}
         >
           <ul class="mt-2 flex flex-col gap-1">
+            <For each={c().customHindrances}>
+              {(h) => (
+                <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
+                  <div class="flex flex-1 flex-col items-start gap-1 text-left">
+                    <div class="flex items-center gap-2 text-sm font-medium">
+                      <span>{h.name}</span>
+                      <Badge variant="ghost">свой</Badge>
+                    </div>
+                  </div>
+                  <RadioGroup<HindranceSeverity>
+                    size="xs"
+                    options={[
+                      { value: 'minor', label: SEVERITY_RU.minor },
+                      { value: 'major', label: SEVERITY_RU.major },
+                    ]}
+                    value={h.severity}
+                    onChange={(v) => actions.setCustomHindranceSeverity(h.id, v)}
+                  />
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    square
+                    aria-label="Удалить"
+                    onClick={() => actions.removeCustomHindrance(h.id)}
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </li>
+              )}
+            </For>
             <For each={c().hindrances}>
               {(sel) => {
                 const h = HINDRANCE_BY_ID.get(sel.hindranceId);
@@ -116,6 +160,36 @@ export function HindrancesTab(): JSX.Element {
             </For>
           </ul>
         </Show>
+      </Card>
+
+      <Card>
+        <div class="text-xs uppercase opacity-60">Свой изъян</div>
+        <div class="mt-2 flex flex-col gap-2">
+          <Input
+            placeholder="Название"
+            value={customName()}
+            onInput={(e) => setCustomName(e.currentTarget.value)}
+          />
+          <div class="flex items-center justify-between gap-2">
+            <RadioGroup<HindranceSeverity>
+              size="xs"
+              options={[
+                { value: 'minor', label: SEVERITY_RU.minor },
+                { value: 'major', label: SEVERITY_RU.major },
+              ]}
+              value={customSeverity()}
+              onChange={setCustomSeverity}
+            />
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={customName().trim() === ''}
+              onClick={addCustomHindrance}
+            >
+              Добавить
+            </Button>
+          </div>
+        </div>
       </Card>
 
       <Input

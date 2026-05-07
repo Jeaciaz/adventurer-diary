@@ -5,6 +5,7 @@ import type {
   AppSettings,
   AttributeId,
   Character,
+  CustomHindrance,
   CustomSkill,
   DieStep,
   DieStepOrNone,
@@ -81,6 +82,17 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
     setHindranceSeverity(hindranceId: string, severity: HindranceSeverity) {
       set('character', 'hindrances', (xs) =>
         xs.map((x) => (x.hindranceId === hindranceId ? { ...x, severity } : x)),
+      );
+    },
+    addCustomHindrance(h: CustomHindrance) {
+      set('character', 'customHindrances', (xs) => [...xs, h]);
+    },
+    removeCustomHindrance(id: string) {
+      set('character', 'customHindrances', (xs) => xs.filter((x) => x.id !== id));
+    },
+    setCustomHindranceSeverity(id: string, severity: HindranceSeverity) {
+      set('character', 'customHindrances', (xs) =>
+        xs.map((x) => (x.id === id ? { ...x, severity } : x)),
       );
     },
     addEdge(e: SelectedEdge) {

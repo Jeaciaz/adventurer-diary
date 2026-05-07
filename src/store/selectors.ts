@@ -84,13 +84,13 @@ export function hindrancePointsEarned(
   c: Character,
   hindranceMap: Map<string, Hindrance>,
 ): { minor: number; major: number; total: number } {
-  let minor = 0;
-  let major = 0;
-  for (const sel of c.hindrances) {
-    if (sel.severity === 'minor') minor += 1;
-    else if (sel.severity === 'major') major += 2;
-    void hindranceMap; // future use for validation
-  }
+  void hindranceMap; // future use for validation
+  const severities = [
+    ...c.hindrances.map((h) => h.severity),
+    ...c.customHindrances.map((h) => h.severity),
+  ];
+  const minor = severities.filter((s) => s === 'minor').length;
+  const major = severities.filter((s) => s === 'major').length * 2;
   return { minor, major, total: minor + major };
 }
 
