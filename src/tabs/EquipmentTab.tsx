@@ -220,10 +220,15 @@ export function EquipmentTab(): JSX.Element {
 
       <Toggle checked={onlyDeadlands()} onChange={setOnlyDeadlands} label="Только Deadlands" />
 
-      <Collapsible title={`Оружие (${weaponsVisible().length})`} defaultOpen={false}>
+      <Collapsible title={`Оружие (${weaponsVisible().length})`}>
         <For each={weaponsByCategory()}>
           {([cat, items]) => (
-            <ItemCategoryGroup title={`${WEAPON_SUBCAT_RU[cat] ?? cat} (${items.length})`} items={items} onTap={setDrawerItem} />
+            <ItemCategoryGroup
+              title={`${WEAPON_SUBCAT_RU[cat] ?? cat} (${items.length})`}
+              items={items}
+              onTap={setDrawerItem}
+              defaultOpen
+            />
           )}
         </For>
       </Collapsible>
@@ -309,9 +314,10 @@ function ItemCategoryGroup(props: {
   title: string;
   items: AnyItem[];
   onTap: (item: AnyItem) => void;
+  defaultOpen?: boolean;
 }): JSX.Element {
   return (
-    <Collapsible title={props.title} defaultOpen={false}>
+    <Collapsible title={props.title} defaultOpen={props.defaultOpen ?? false}>
       <ul class="flex flex-col gap-1">
         <For each={props.items}>{(item) => <ItemRow item={item} onTap={props.onTap} />}</For>
       </ul>
@@ -325,7 +331,7 @@ function ItemRow(props: {
 }): JSX.Element {
   const { actions } = useStore();
   return (
-    <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
+    <li class="flex items-start justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
       <button
         type="button"
         class="flex flex-1 flex-col items-start gap-0.5 text-left"
@@ -347,6 +353,9 @@ function ItemRow(props: {
         <div class="text-xs opacity-60">
           <EquipmentSubtitle item={props.item} />
         </div>
+        <Show when={isWeaponItem(props.item)}>
+          <p class="text-xs leading-snug text-base-content/70">{props.item.description}</p>
+        </Show>
       </button>
       <Button
         size="xs"

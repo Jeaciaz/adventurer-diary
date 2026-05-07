@@ -254,6 +254,7 @@ export function EdgesTab(): JSX.Element {
                   >
                     <EdgeTitle edge={e} />
                     <div class="text-xs opacity-60">{CATEGORY_RU[e.category]}</div>
+                    <EdgeSummary edge={e} />
                   </button>
                   <Button
                     size="xs"
@@ -279,11 +280,11 @@ export function EdgesTab(): JSX.Element {
 
       <For each={grouped()}>
         {([cat, items]) => (
-          <Collapsible title={`${CATEGORY_RU[cat]} (${items.length})`} defaultOpen={false}>
+          <Collapsible title={`${CATEGORY_RU[cat]} (${items.length})`}>
             <ul class="flex flex-col gap-1">
               <For each={items}>
                 {(e) => (
-                  <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
+                  <li class="flex items-start justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
                     <button
                       type="button"
                       class="flex flex-1 flex-col items-start gap-0.5 text-left"
@@ -291,6 +292,7 @@ export function EdgesTab(): JSX.Element {
                     >
                       <EdgeTitle edge={e} />
                       <RequirementBadges requirements={e.requirements} character={c()} />
+                      <EdgeSummary edge={e} />
                     </button>
                     <Button
                       size="xs"
@@ -436,6 +438,10 @@ function EdgeTitle(props: { edge: Edge }): JSX.Element {
       </Show>
     </div>
   );
+}
+
+function EdgeSummary(props: { edge: Edge }): JSX.Element {
+  return <p class="text-xs leading-snug text-base-content/70">{props.edge.description}</p>;
 }
 
 function RequirementBadges(props: { requirements: EdgeRequirement[]; character: Character }): JSX.Element {
