@@ -1,4 +1,5 @@
-import { createSignal, Match, Switch, type JSX } from 'solid-js';
+import { createMemo, createSignal, Match, Switch, type JSX } from 'solid-js';
+import { useLocation, useNavigate } from '@solidjs/router';
 import { Activity, HeartCrack, Medal, Sword, User, WandSparkles } from 'lucide-solid';
 import { StoreProvider } from './store/store';
 import { TopBar } from './components/TopBar';
@@ -13,8 +14,17 @@ import { PowersTab } from './tabs/PowersTab';
 
 type TabId = 'stats' | 'status' | 'edges' | 'hindrances' | 'equipment' | 'powers';
 
+const TAB_IDS: readonly TabId[] = ['stats', 'status', 'edges', 'hindrances', 'equipment', 'powers'];
+
+function tabFromPath(pathname: string): TabId {
+  const value = pathname.replace(/^\//, '');
+  return TAB_IDS.includes(value as TabId) ? (value as TabId) : 'stats';
+}
+
 export function App(): JSX.Element {
-  const [tab, setTab] = createSignal<TabId>('stats');
+  const location = useLocation();
+  const navigate = useNavigate();
+  const tab = createMemo(() => tabFromPath(location.pathname));
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const tabs: TabItem<TabId>[] = [
     { id: 'stats', label: 'Параметры', icon: <User size={20} /> },
@@ -25,11 +35,15 @@ export function App(): JSX.Element {
     { id: 'powers', label: 'Силы', icon: <WandSparkles size={20} /> },
   ];
 
+  const selectTab = (nextTab: TabId): void => {
+    navigate(`/${nextTab}`);
+  };
+
   return (
     <StoreProvider>
       <div class="flex min-h-screen flex-col">
         <TopBar onOpenSettings={() => setSettingsOpen(true)} />
-        <TopTabs items={tabs} active={tab()} onChange={setTab} />
+        <TopTabs items={tabs} active={tab()} onChange={selectTab} />
         <main class="flex-1 overflow-y-auto px-3 pb-24 pt-3 sm:pb-6">
           <Switch>
             <Match when={tab() === 'stats'}>
@@ -52,7 +66,7 @@ export function App(): JSX.Element {
             </Match>
           </Switch>
         </main>
-        <BottomTabs items={tabs} active={tab()} onChange={setTab} />
+        <BottomTabs items={tabs} active={tab()} onChange={selectTab} />
         <SettingsDrawer open={settingsOpen()} onClose={() => setSettingsOpen(false)} />
         <ToastHost />
       </div>
