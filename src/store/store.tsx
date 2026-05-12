@@ -96,10 +96,25 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
       );
     },
     addEdge(e: SelectedEdge) {
-      set('character', 'edges', (xs) => [...xs, e]);
+      set('character', 'edges', (xs) => {
+        const existing = xs.find((x) => x.edgeId === e.edgeId);
+        if (existing) {
+          return xs.map((x) =>
+            x.edgeId === e.edgeId ? { ...x, count: Math.max(1, (x.count ?? 1) + (e.count ?? 1)) } : x,
+          );
+        }
+        return [...xs, e];
+      });
     },
     removeEdge(edgeId: string) {
       set('character', 'edges', (xs) => xs.filter((x) => x.edgeId !== edgeId));
+    },
+    setEdgeCount(edgeId: string, count: number) {
+      set('character', 'edges', (xs) =>
+        count <= 0
+          ? xs.filter((x) => x.edgeId !== edgeId)
+          : xs.map((x) => (x.edgeId === edgeId ? { ...x, count: Math.max(1, count) } : x)),
+      );
     },
     addEquipment(item: SelectedEquipment) {
       set('character', 'equipment', (xs) => {
@@ -136,6 +151,11 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
     },
     removePower(powerId: string) {
       set('character', 'powers', (xs) => xs.filter((x) => x.powerId !== powerId));
+    },
+    togglePinnedPower(powerId: string) {
+      set('character', 'pinnedPowerIds', (xs) =>
+        xs.includes(powerId) ? xs.filter((id) => id !== powerId) : [...xs, powerId],
+      );
     },
     setAbFilterEnabled(enabled: boolean) {
       set('character', 'abFilterEnabled', enabled);

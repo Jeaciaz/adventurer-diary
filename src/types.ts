@@ -166,6 +166,7 @@ export interface CustomHindrance {
 
 export interface SelectedEdge {
   edgeId: string;
+  count?: number;
 }
 
 export interface SelectedEquipment {
@@ -195,6 +196,7 @@ export interface Character {
   equipment: SelectedEquipment[];
   arcaneBackgroundId: string | null;
   powers: SelectedPower[];
+  pinnedPowerIds: string[];
   powerPoints: number;
   money: number;
   wounds: number;

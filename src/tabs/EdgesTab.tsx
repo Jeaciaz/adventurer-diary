@@ -5,8 +5,10 @@ import { ATTRIBUTES, BASE_SKILL_IDS, EDGES, EDGE_BY_ID, EQUIPMENT_OTHER_BY_ID, P
 import { dieIndex, edgeCap, rankFromAdvances } from '../store/selectors';
 import { EquipmentDetails, otherItem, weaponItem, type AnyEquipmentItem } from '../components/EquipmentDetails';
 import { PowerDetails } from '../components/PowerDetails';
-import { Badge, Button, Card, Collapsible, Counter, Drawer, Input, RichText, type TextReference } from '../ui';
+import { Badge, Button, Card, Collapsible, Counter, Drawer, Input, NumberStepper, RichText, type TextReference } from '../ui';
 import type { Character, DieStepOrNone, Edge, EdgeCategory, EdgeRequirement, Power, Rank } from '../types';
+
+const NEW_POWERS_EDGE_ID = 'novye-sily';
 
 const CATEGORY_RU: Record<EdgeCategory, string> = {
   background: 'Предыстория',
@@ -222,8 +224,12 @@ export function EdgesTab(): JSX.Element {
 
   const selectedEdges = createMemo(() =>
     c()
-      .edges.map((s) => EDGE_BY_ID.get(s.edgeId))
-      .filter((e): e is Edge => !!e),
+      .edges.map((sel) => ({ sel, edge: EDGE_BY_ID.get(sel.edgeId) }))
+      .filter((x): x is { sel: Character['edges'][number]; edge: Edge } => !!x.edge),
+  );
+
+  const selectedEdgeTotal = createMemo(() =>
+    c().edges.reduce((total, edge) => total + Math.max(1, edge.count ?? 1), 0),
   );
 
   return (
@@ -231,9 +237,9 @@ export function EdgesTab(): JSX.Element {
       <div class="flex flex-wrap items-center gap-2">
         <Counter
           label="Черты"
-          value={c().edges.length}
+          value={selectedEdgeTotal()}
           cap={edgeCap()}
-          warn={c().edges.length > edgeCap()}
+          warn={selectedEdgeTotal() > edgeCap()}
         />
       </div>
 
@@ -245,23 +251,30 @@ export function EdgesTab(): JSX.Element {
         >
           <ul class="mt-2 flex flex-col gap-1">
             <For each={selectedEdges()}>
-              {(e) => (
-                <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
+              {({ sel, edge }) => (
+                <li class="flex items-start justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
                   <button
                     type="button"
                     class="flex flex-1 flex-col items-start gap-0.5 text-left"
-                    onClick={() => setDrawerEdge(e)}
+                    onClick={() => setDrawerEdge(edge)}
                   >
-                    <EdgeTitle edge={e} />
-                    <div class="text-xs opacity-60">{CATEGORY_RU[e.category]}</div>
-                    <EdgeSummary edge={e} />
+                    <EdgeTitle edge={edge} />
+                    <div class="text-xs opacity-60">{CATEGORY_RU[edge.category]}</div>
+                    <EdgeSummary edge={edge} />
                   </button>
+                  <Show when={edge.id === NEW_POWERS_EDGE_ID}>
+                    <NumberStepper
+                      value={sel.count ?? 1}
+                      onChange={(value) => actions.setEdgeCount(edge.id, value)}
+                      min={0}
+                    />
+                  </Show>
                   <Button
                     size="xs"
                     variant="ghost"
                     square
                     aria-label="Удалить"
-                    onClick={() => actions.removeEdge(e.id)}
+                    onClick={() => actions.removeEdge(edge.id)}
                   >
                     <Trash2 size={14} />
                   </Button>

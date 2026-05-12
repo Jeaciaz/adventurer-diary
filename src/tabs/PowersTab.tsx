@@ -1,5 +1,5 @@
 import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
-import { Clock, Crosshair, Plus, Ruler, Trash2, Zap } from 'lucide-solid';
+import { Clock, Crosshair, Pin, PinOff, Plus, Ruler, Trash2, Zap } from 'lucide-solid';
 import { useStore } from '../store/store';
 import { ARCANE_BACKGROUNDS, ARCANE_BACKGROUND_BY_ID, POWERS, POWER_BY_ID } from '../data';
 import { rankFromAdvances } from '../store/selectors';
@@ -25,6 +25,7 @@ const RANK_RU: Record<Rank, string> = {
 };
 
 const RANK_ORDER: Rank[] = ['novice', 'seasoned', 'veteran', 'heroic', 'legendary'];
+const NEW_POWERS_EDGE_ID = 'novye-sily';
 const ATTACK_POWER_STATS: Record<string, { damage: string; sort: number }> = {
   banish: { damage: 'инертность', sort: 0 },
   izgnanie: { damage: '1 ранение/подъём', sort: 0 },
@@ -118,6 +119,20 @@ function hasPower(c: Character, powerId: string): boolean {
   return c.powers.some((x) => x.powerId === powerId);
 }
 
+function isPinnedPower(c: Character, powerId: string): boolean {
+  return c.pinnedPowerIds.includes(powerId);
+}
+
+function newPowersEdgeCount(c: Character): number {
+  const edge = c.edges.find((item) => item.edgeId === NEW_POWERS_EDGE_ID);
+  if (edge == null) return 0;
+  return Math.max(1, edge.count ?? 1);
+}
+
+function availablePowerSlots(c: Character, ab: ArcaneBackground | null): number {
+  return (ab?.startingPowers ?? 0) + newPowersEdgeCount(c) * 2;
+}
+
 export function PowersTab(): JSX.Element {
   const { state, actions } = useStore();
   const c = (): typeof state.character => state.character;
@@ -135,13 +150,18 @@ export function PowersTab(): JSX.Element {
 
   const groupedPowers = createMemo(() => {
     const powers = visiblePowers();
+    const pinnedIds = new Set(c().pinnedPowerIds);
+    const pinned = powers.filter((p) => pinnedIds.has(p.id));
+    const unpinned = powers.filter((p) => !pinnedIds.has(p.id));
     return [
-      { title: 'Атакующие силы', items: powers.filter(isDamagePower).sort(attackPowerSort) },
-      { title: 'Прочие силы', items: powers.filter((p) => !isDamagePower(p)) },
+      { title: 'Закреплённые', items: pinned },
+      { title: 'Атакующие силы', items: unpinned.filter(isDamagePower).sort(attackPowerSort) },
+      { title: 'Прочие силы', items: unpinned.filter((p) => !isDamagePower(p)) },
     ].filter((group) => group.items.length > 0);
   });
 
   const selectedSorted = createMemo(() => selectedPowerEntries(c()));
+  const powerSlots = createMemo(() => availablePowerSlots(c(), ab()));
 
   return (
     <div class="flex flex-col gap-4">
@@ -174,7 +194,7 @@ export function PowersTab(): JSX.Element {
       </Card>
 
       <Card>
-        <div class="text-xs uppercase opacity-60">Выбранные</div>
+        <div class="text-xs uppercase opacity-60">Выбранные ({selectedSorted().length}/{powerSlots()})</div>
         <Show
           when={selectedSorted().length > 0}
           fallback={<div class="mt-2 text-sm opacity-60">Ещё не выбраны.</div>}
@@ -225,7 +245,7 @@ export function PowersTab(): JSX.Element {
                       const rankWarn = !rankLeq(p.rank, charRank());
                       const abWarn = arcaneBackgroundWarn(c(), allowedSet(), p.id);
                       return (
-                        <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
+                        <li class="flex items-start justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
                           <button
                             type="button"
                             class="flex flex-1 flex-col items-start gap-0.5 text-left"
@@ -238,6 +258,17 @@ export function PowersTab(): JSX.Element {
                             <PowerWarningTags power={p} rankWarn={rankWarn} abWarn={abWarn} />
                             <PowerSubtitle power={p} />
                           </button>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            square
+                            aria-label={isPinnedPower(c(), p.id) ? 'Открепить' : 'Закрепить'}
+                            onClick={() => actions.togglePinnedPower(p.id)}
+                          >
+                            <Show when={isPinnedPower(c(), p.id)} fallback={<Pin size={14} />}>
+                              <PinOff size={14} />
+                            </Show>
+                          </Button>
                           <Button
                             size="xs"
                             variant="ghost"

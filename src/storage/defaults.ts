@@ -28,6 +28,7 @@ export const defaultCharacter: Character = {
   equipment: [],
   arcaneBackgroundId: null,
   powers: [],
+  pinnedPowerIds: [],
   powerPoints: 0,
   money: 500,
   wounds: 0,

@@ -190,6 +190,12 @@ function parseArray<T>(value: unknown, guard: (item: unknown) => item is T): T[]
   return items.filter(guard);
 }
 
+function parseStringArray(value: unknown): string[] {
+  const items = arrayItems(value);
+  if (items == null) return [];
+  return items.filter(isString);
+}
+
 function parseDerivedStats(value: unknown): Character['derivedStats'] {
   return {
     pace: numberField(value, 'pace', defaultCharacter.derivedStats.pace),
@@ -210,6 +216,7 @@ function mergeCharacter(value: unknown): Character {
     equipment: parseArray(propFrom(value, 'equipment'), isSelectedEquipment),
     arcaneBackgroundId: nullableStringField(value, 'arcaneBackgroundId', defaultCharacter.arcaneBackgroundId),
     powers: parseArray(propFrom(value, 'powers'), isSelectedPower),
+    pinnedPowerIds: parseStringArray(propFrom(value, 'pinnedPowerIds')),
     powerPoints: numberField(value, 'powerPoints', defaultCharacter.powerPoints),
     money: numberField(value, 'money', defaultCharacter.money),
     wounds: numberField(value, 'wounds', defaultCharacter.wounds),

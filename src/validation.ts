@@ -246,7 +246,10 @@ const selectedHindranceSchema = v.object({
 
 export const isSelectedHindrance = guardFromSchema<SelectedHindrance>(selectedHindranceSchema);
 
-const selectedEdgeSchema = v.object({ edgeId: v.string() });
+const selectedEdgeSchema = v.object({
+  edgeId: v.string(),
+  count: v.optional(finiteNumberSchema),
+});
 
 export const isSelectedEdge = guardFromSchema<SelectedEdge>(selectedEdgeSchema);
 
