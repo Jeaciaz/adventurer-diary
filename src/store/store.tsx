@@ -5,6 +5,7 @@ import type {
   AppSettings,
   AttributeId,
   Character,
+  CustomEdge,
   CustomHindrance,
   CustomSkill,
   DieStep,
@@ -115,6 +116,12 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
           ? xs.filter((x) => x.edgeId !== edgeId)
           : xs.map((x) => (x.edgeId === edgeId ? { ...x, count: Math.max(1, count) } : x)),
       );
+    },
+    addCustomEdge(edge: CustomEdge) {
+      set('character', 'customEdges', (xs) => [...xs, edge]);
+    },
+    removeCustomEdge(id: string) {
+      set('character', 'customEdges', (xs) => xs.filter((x) => x.id !== id));
     },
     addEquipment(item: SelectedEquipment) {
       set('character', 'equipment', (xs) => {

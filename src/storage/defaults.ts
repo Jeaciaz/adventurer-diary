@@ -25,6 +25,7 @@ export const defaultCharacter: Character = {
   hindrances: [],
   customHindrances: [],
   edges: [],
+  customEdges: [],
   equipment: [],
   arcaneBackgroundId: null,
   powers: [],

@@ -6,7 +6,7 @@ import { dieIndex, edgeCap, rankFromAdvances } from '../store/selectors';
 import { EquipmentDetails, otherItem, weaponItem, type AnyEquipmentItem } from '../components/EquipmentDetails';
 import { PowerDetails } from '../components/PowerDetails';
 import { Badge, Button, Card, Collapsible, Counter, Drawer, Input, NumberStepper, RichText, type TextReference } from '../ui';
-import type { Character, DieStepOrNone, Edge, EdgeCategory, EdgeRequirement, Power, Rank } from '../types';
+import type { Character, CustomEdge, DieStepOrNone, Edge, EdgeCategory, EdgeRequirement, Power, Rank } from '../types';
 
 const NEW_POWERS_EDGE_ID = 'novye-sily';
 
@@ -30,6 +30,10 @@ const CATEGORY_RU: Record<EdgeCategory, string> = {
 
 function matchesSearch(item: Pick<Edge, 'ru' | 'originalName'>, query: string): boolean {
   return query === '' || item.ru.toLowerCase().includes(query) || item.originalName?.toLowerCase().includes(query) === true;
+}
+
+function makeCustomEdgeId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `custom-edge-${Date.now()}`;
 }
 
 const ATTRIBUTE_RU = new Map(ATTRIBUTES.map((a) => [a.id, a.ru]));
@@ -192,6 +196,9 @@ export function EdgesTab(): JSX.Element {
   const c = (): typeof state.character => state.character;
   const [search, setSearch] = createSignal('');
   const [drawerEdge, setDrawerEdge] = createSignal<Edge | null>(null);
+  const [customDrawerOpen, setCustomDrawerOpen] = createSignal(false);
+  const [customEdgeName, setCustomEdgeName] = createSignal('');
+  const [customEdgeDescription, setCustomEdgeDescription] = createSignal('');
   const [referenceTarget, setReferenceTarget] = createSignal<ReferenceTarget | null>(null);
 
   const referenceOpeners: Record<TextReference['kind'], (id: string) => void> = {
@@ -229,8 +236,18 @@ export function EdgesTab(): JSX.Element {
   );
 
   const selectedEdgeTotal = createMemo(() =>
-    c().edges.reduce((total, edge) => total + Math.max(1, edge.count ?? 1), 0),
+    c().edges.reduce((total, edge) => total + Math.max(1, edge.count ?? 1), c().customEdges.length),
   );
+
+  const addCustomEdge = (): void => {
+    const name = customEdgeName().trim();
+    const description = customEdgeDescription().trim();
+    if (name === '') return;
+    actions.addCustomEdge({ id: makeCustomEdgeId(), name, description });
+    setCustomEdgeName('');
+    setCustomEdgeDescription('');
+    setCustomDrawerOpen(false);
+  };
 
   return (
     <div class="flex flex-col gap-4">
@@ -246,10 +263,15 @@ export function EdgesTab(): JSX.Element {
       <Card>
         <div class="text-xs uppercase opacity-60">Выбранные</div>
         <Show
-          when={selectedEdges().length > 0}
+          when={selectedEdges().length + c().customEdges.length > 0}
           fallback={<div class="mt-2 text-sm opacity-60">Ещё не выбраны.</div>}
         >
           <ul class="mt-2 flex flex-col gap-1">
+            <For each={c().customEdges}>
+              {(edge) => (
+                <CustomEdgeRow edge={edge} onRemove={() => actions.removeCustomEdge(edge.id)} />
+              )}
+            </For>
             <For each={selectedEdges()}>
               {({ sel, edge }) => (
                 <li class="flex items-start justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
@@ -324,6 +346,17 @@ export function EdgesTab(): JSX.Element {
         )}
       </For>
 
+      <Button
+        size="md"
+        variant="primary"
+        square
+        class="fixed bottom-20 right-4 z-30 h-14 w-14 rounded-full shadow-lg sm:bottom-6"
+        aria-label="Добавить свою черту"
+        onClick={() => setCustomDrawerOpen(true)}
+      >
+        <Plus size={24} />
+      </Button>
+
       <Drawer
         open={drawerEdge() != null}
         onClose={() => setDrawerEdge(null)}
@@ -374,7 +407,62 @@ export function EdgesTab(): JSX.Element {
           {(target) => <ReferenceDetails target={target()} />}
         </Show>
       </Drawer>
+      <Drawer
+        open={customDrawerOpen()}
+        onClose={() => setCustomDrawerOpen(false)}
+        title="Своя черта"
+      >
+        <div class="flex flex-col gap-3">
+          <Input
+            label="Название"
+            value={customEdgeName()}
+            onInput={(event) => setCustomEdgeName(event.currentTarget.value)}
+          />
+          <label class="form-control w-full">
+            <span class="label-text mb-1 block text-sm">Описание</span>
+            <textarea
+              class="textarea textarea-bordered min-h-28 w-full"
+              value={customEdgeDescription()}
+              onInput={(event) => setCustomEdgeDescription(event.currentTarget.value)}
+            />
+          </label>
+          <Button
+            variant="primary"
+            disabled={customEdgeName().trim() === ''}
+            onClick={addCustomEdge}
+          >
+            Добавить
+          </Button>
+        </div>
+      </Drawer>
     </div>
+  );
+}
+
+function CustomEdgeRow(props: { edge: CustomEdge; onRemove: () => void }): JSX.Element {
+  return (
+    <li class="flex items-start justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
+      <div class="flex flex-1 flex-col items-start gap-0.5 text-left">
+        <div class="flex items-center gap-2 text-sm font-medium">
+          <span>{props.edge.name}</span>
+          <Badge variant="ghost">своя</Badge>
+        </div>
+        <Show when={props.edge.description !== ''}>
+          <p class="whitespace-pre-line text-xs leading-snug text-base-content/70">
+            {props.edge.description}
+          </p>
+        </Show>
+      </div>
+      <Button
+        size="xs"
+        variant="ghost"
+        square
+        aria-label="Удалить"
+        onClick={props.onRemove}
+      >
+        <Trash2 size={14} />
+      </Button>
+    </li>
   );
 }
 

@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 import type {
   ArcaneBackground,
+  CustomEdge,
   CustomHindrance,
   Attribute,
   CustomSkill,
@@ -152,6 +153,14 @@ const edgeSchema = v.object({
 });
 
 export const isEdge = guardFromSchema<Edge>(edgeSchema);
+
+const customEdgeSchema = v.object({
+  id: v.string(),
+  name: v.string(),
+  description: v.string(),
+});
+
+export const isCustomEdge = guardFromSchema<CustomEdge>(customEdgeSchema);
 
 const powerSchema = v.object({
   id: v.string(),

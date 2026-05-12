@@ -68,6 +68,12 @@ export interface Edge {
   translationNote?: string;
 }
 
+export interface CustomEdge {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface Power {
   id: string;
   ru: string;
@@ -193,6 +199,7 @@ export interface Character {
   hindrances: SelectedHindrance[];
   customHindrances: CustomHindrance[];
   edges: SelectedEdge[];
+  customEdges: CustomEdge[];
   equipment: SelectedEquipment[];
   arcaneBackgroundId: string | null;
   powers: SelectedPower[];
