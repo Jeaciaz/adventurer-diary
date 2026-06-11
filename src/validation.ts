@@ -1,6 +1,7 @@
 import * as v from 'valibot';
 import type {
   ArcaneBackground,
+  CustomEquipment,
   CustomEdge,
   CustomHindrance,
   Attribute,
@@ -162,6 +163,14 @@ const customEdgeSchema = v.object({
 
 export const isCustomEdge = guardFromSchema<CustomEdge>(customEdgeSchema);
 
+const customEquipmentSchema = v.object({
+  id: v.string(),
+  name: v.string(),
+  description: v.optional(v.string()),
+});
+
+export const isCustomEquipment = guardFromSchema<CustomEquipment>(customEquipmentSchema);
+
 const powerSchema = v.object({
   id: v.string(),
   ru: v.string(),
@@ -244,6 +253,7 @@ const customHindranceSchema = v.object({
   id: v.string(),
   name: v.string(),
   severity: hindranceSeveritySchema,
+  description: v.optional(v.string()),
 });
 
 export const isCustomHindrance = guardFromSchema<CustomHindrance>(customHindranceSchema);
@@ -265,7 +275,7 @@ export const isSelectedEdge = guardFromSchema<SelectedEdge>(selectedEdgeSchema);
 const selectedEquipmentSchema = v.object({
   itemId: v.string(),
   quantity: finiteNumberSchema,
-  type: v.picklist(['weapon', 'other']),
+  type: v.picklist(['weapon', 'other', 'custom']),
 });
 
 export const isSelectedEquipment = guardFromSchema<SelectedEquipment>(selectedEquipmentSchema);

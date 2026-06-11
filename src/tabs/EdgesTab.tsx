@@ -9,6 +9,7 @@ import { Badge, Button, Card, Collapsible, Counter, Drawer, Input, NumberStepper
 import type { Character, CustomEdge, DieStepOrNone, Edge, EdgeCategory, EdgeRequirement, Power, Rank } from '../types';
 
 const NEW_POWERS_EDGE_ID = 'novye-sily';
+const ARCANE_BACKGROUND_EDGE_ID = 'misticheskii-dar';
 
 const CATEGORY_RU: Record<EdgeCategory, string> = {
   background: 'Предыстория',
@@ -166,7 +167,9 @@ function skillReqMet(r: EdgeRequirement, c: Character): boolean | null {
 }
 
 function edgeReqMet(r: EdgeRequirement, c: Character): boolean | null {
-  return r.type === 'edge' ? c.edges.some((edge) => edge.edgeId === r.edgeId) : null;
+  if (r.type !== 'edge') return null;
+  if (r.edgeId === ARCANE_BACKGROUND_EDGE_ID && c.arcaneBackgroundId != null) return true;
+  return c.edges.some((edge) => edge.edgeId === r.edgeId);
 }
 
 const REQUIREMENT_CHECKERS = new Map<EdgeRequirement['type'], RequirementChecker>([

@@ -17,19 +17,47 @@ import {
   Drawer,
   Input,
   NumberStepper,
+  pushToast,
   Toggle,
 } from '../ui';
-import type { EquipmentItem, Weapon } from '../types';
+import type { EquipmentItem, SelectedEquipment, Weapon } from '../types';
 
 type AnyItem = AnyEquipmentItem;
 
-function selectedItem(sel: { itemId: string; type: 'weapon' | 'other' }): AnyItem | null {
+function selectedItem(sel: { itemId: string; type: SelectedEquipment['type'] }): AnyItem | null {
   if (sel.type === 'weapon') {
     const item = WEAPON_BY_ID.get(sel.itemId);
     return item == null ? null : weaponItem(item);
   }
   const item = EQUIPMENT_OTHER_BY_ID.get(sel.itemId);
   return item == null ? null : otherItem(item);
+}
+
+function makeCustomEquipmentId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `custom-equipment-${Date.now()}`;
+}
+
+function selectionFor(item: AnyItem): SelectedEquipment {
+  return {
+    itemId: item.id,
+    quantity: 1,
+    type: isWeaponItem(item) ? 'weapon' : 'other',
+  };
+}
+
+function addEquipment(actions: ReturnType<typeof useStore>['actions'], item: AnyItem): void {
+  actions.addEquipment(selectionFor(item));
+  pushToast(`Добавлено: ${item.ru}`, 'success');
+}
+
+function buyEquipment(
+  actions: ReturnType<typeof useStore>['actions'],
+  money: number,
+  item: AnyItem,
+): void {
+  actions.addEquipment(selectionFor(item));
+  actions.setMoney(Math.max(0, money - item.cost));
+  pushToast(`Куплено: ${item.ru} ($${item.cost})`, 'success');
 }
 
 const WEAPON_SUBCAT_RU: Record<string, string> = {
@@ -117,8 +145,11 @@ export function EquipmentTab(): JSX.Element {
   const { state, actions } = useStore();
   const c = (): typeof state.character => state.character;
   const [search, setSearch] = createSignal('');
-  const [onlyDeadlands, setOnlyDeadlands] = createSignal(false);
+  const [onlyDeadlands, setOnlyDeadlands] = createSignal(true);
   const [drawerItem, setDrawerItem] = createSignal<AnyItem | null>(null);
+  const [customOpen, setCustomOpen] = createSignal(false);
+  const [customName, setCustomName] = createSignal('');
+  const [customDescription, setCustomDescription] = createSignal('');
 
   const dlOn = (): boolean => state.settings.deadlandsEnabled;
 
@@ -154,9 +185,22 @@ export function EquipmentTab(): JSX.Element {
     return [...map.entries()];
   });
 
+  const customEquipmentById = createMemo(() => new Map(c().customEquipment.map((item) => [item.id, item])));
+
+  const submitCustom = (): void => {
+    const name = customName().trim();
+    const description = customDescription().trim();
+    if (!name) return;
+    actions.addCustomEquipment({ id: makeCustomEquipmentId(), name, description });
+    pushToast(`Добавлено: ${name}`, 'success');
+    setCustomName('');
+    setCustomDescription('');
+    setCustomOpen(false);
+  };
+
   return (
     <div class="flex flex-col gap-4">
-      <div class="self-start rounded-xl border border-base-300 bg-base-200 p-2">
+      <div class="sticky top-0 z-20 self-start rounded-b-xl border border-t-0 border-base-300 bg-base-200/95 p-2 shadow-lg backdrop-blur">
         <MoneyControl value={c().money} onChange={actions.setMoney} />
       </div>
 
@@ -169,6 +213,42 @@ export function EquipmentTab(): JSX.Element {
           <ul class="mt-2 flex flex-col gap-1">
             <For each={c().equipment}>
               {(sel) => {
+                const customItem = (): typeof state.character.customEquipment[number] | undefined => customEquipmentById().get(sel.itemId);
+                if (sel.type === 'custom') {
+                  return (
+                    <li class="flex items-start justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2 py-1">
+                      <div class="flex flex-1 flex-col items-start gap-0.5 text-left">
+                        <div class="flex items-center gap-2 text-sm font-medium">
+                          <span>{customItem()?.name ?? sel.itemId}</span>
+                          <Badge variant="primary" outline>
+                            своё
+                          </Badge>
+                        </div>
+                        <Show when={customItem()?.description}>
+                          {(description) => (
+                            <p class="whitespace-pre-line text-xs leading-snug text-base-content/70">
+                              {description()}
+                            </p>
+                          )}
+                        </Show>
+                      </div>
+                      <NumberStepper
+                        value={sel.quantity}
+                        onChange={(v) => actions.setEquipmentQuantity(sel.itemId, v)}
+                        min={0}
+                      />
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        square
+                        aria-label="Удалить"
+                        onClick={() => actions.removeEquipment(sel.itemId)}
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </li>
+                  );
+                }
                 const item = selectedItem(sel);
                 if (item == null) return null;
                 return (
@@ -251,23 +331,65 @@ export function EquipmentTab(): JSX.Element {
             <EquipmentDetails
               item={it()}
               actions={
-                <Button
-                  variant="primary"
-                  onClick={() => {
-                    actions.addEquipment({
-                      itemId: it().id,
-                      quantity: 1,
-                      type: isWeaponItem(it()) ? 'weapon' : 'other',
-                    });
-                    setDrawerItem(null);
-                  }}
-                >
-                  Добавить
-                </Button>
+                <div class="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      addEquipment(actions, it());
+                      setDrawerItem(null);
+                    }}
+                  >
+                    Добавить
+                  </Button>
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      buyEquipment(actions, c().money, it());
+                      setDrawerItem(null);
+                    }}
+                  >
+                    Купить
+                  </Button>
+                </div>
               }
             />
           )}
         </Show>
+      </Drawer>
+      <Button
+        size="md"
+        variant="primary"
+        square
+        class="fixed bottom-20 right-4 z-30 h-14 w-14 rounded-full shadow-lg sm:bottom-6"
+        aria-label="Добавить своё снаряжение"
+        onClick={() => setCustomOpen(true)}
+      >
+        <Plus size={24} />
+      </Button>
+      <Drawer
+        open={customOpen()}
+        onClose={() => setCustomOpen(false)}
+        title="Своё снаряжение"
+      >
+        <div class="flex flex-col gap-3">
+          <Input
+            label="Название"
+            value={customName()}
+            onInput={(e) => setCustomName(e.currentTarget.value)}
+            placeholder="Например: серебряная фляга"
+          />
+          <label class="form-control w-full">
+            <span class="label-text mb-1 block text-sm">Описание</span>
+            <textarea
+              class="textarea textarea-bordered min-h-28 w-full"
+              value={customDescription()}
+              onInput={(event) => setCustomDescription(event.currentTarget.value)}
+            />
+          </label>
+          <Button variant="primary" disabled={customName().trim() === ''} onClick={submitCustom}>
+            Добавить
+          </Button>
+        </div>
       </Drawer>
     </div>
   );
@@ -329,7 +451,7 @@ function ItemRow(props: {
   item: AnyItem;
   onTap: (i: AnyItem) => void;
 }): JSX.Element {
-  const { actions } = useStore();
+  const { state, actions } = useStore();
   return (
     <li class="flex items-start justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
       <button
@@ -357,21 +479,25 @@ function ItemRow(props: {
           <p class="text-xs leading-snug text-base-content/70">{props.item.description}</p>
         </Show>
       </button>
-      <Button
-        size="xs"
-        variant="ghost"
-        square
-        aria-label="Добавить"
-        onClick={() =>
-          actions.addEquipment({
-            itemId: props.item.id,
-            quantity: 1,
-            type: isWeaponItem(props.item) ? 'weapon' : 'other',
-          })
-        }
-      >
-        <Plus size={14} />
-      </Button>
+      <div class="flex shrink-0 gap-1">
+        <Button
+          size="xs"
+          variant="ghost"
+          square
+          aria-label="Добавить"
+          onClick={() => addEquipment(actions, props.item)}
+        >
+          <Plus size={14} />
+        </Button>
+        <Button
+          size="xs"
+          variant="primary"
+          aria-label="Купить"
+          onClick={() => buyEquipment(actions, state.character.money, props.item)}
+        >
+          Купить
+        </Button>
+      </div>
     </li>
   );
 }

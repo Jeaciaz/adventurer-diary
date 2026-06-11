@@ -92,7 +92,7 @@ freePoints =
 
 Where:
 - `skillCap = 12 + (5 if Старость taken else 0)`
-- `edgeCap = 1` (free Novice edge from human race) `+ 0` baseline (no other free grants)
+- `edgeCap = 2` (free Novice edge from human race + baseline edge slot)
 - Each over-cap **skill** point costs 1 from pool
 - Each over-cap **attr** point costs 2 from pool
 - Each over-cap **edge** costs 2 from pool
@@ -177,7 +177,7 @@ No trappings.
 
 ## Race
 
-Fixed: Человек. Hidden in UI. Auto-grants 1 free Novice edge slot via `edgeCap = 1` ("Разностороннее развитие" — user picks any qualifying Novice edge).
+Fixed: Человек. Hidden in UI. Auto-grants a free Novice edge slot; combined with the baseline edge slot this gives `edgeCap = 2`.
 
 ---
 

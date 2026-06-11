@@ -9,25 +9,33 @@ interface ToastEntry {
 const [toasts, setToasts] = createRoot(() => createSignal<ToastEntry[]>([]));
 let nextId = 1;
 
+function dismissToast(id: number): void {
+  setToasts((xs) => xs.filter((t) => t.id !== id));
+}
+
 export function pushToast(text: string, variant: ToastEntry['variant'] = 'info'): void {
   const id = nextId++;
   setToasts((xs) => [...xs, { id, text, variant }]);
-  setTimeout(() => setToasts((xs) => xs.filter((t) => t.id !== id)), 3500);
+  setTimeout(() => dismissToast(id), 3500);
 }
 
 export function ToastHost(): JSX.Element {
   return (
-    <div class="toast toast-top toast-center z-[100]">
+    <div class="toast toast-top toast-center z-[100] w-full max-w-sm px-3">
       <For each={toasts()}>
         {(t) => (
-          <div
+          <button
+            type="button"
             class={[
-              'alert',
+              'alert flex min-h-0 cursor-pointer items-center justify-between gap-2 px-3 py-2 text-left text-sm shadow-lg',
               t.variant === 'error' ? 'alert-error' : t.variant === 'success' ? 'alert-success' : 'alert-info',
             ].join(' ')}
+            onClick={() => dismissToast(t.id)}
+            aria-label="Закрыть уведомление"
           >
-            <span>{t.text}</span>
-          </div>
+            <span class="leading-snug">{t.text}</span>
+            <span class="text-base leading-none" aria-hidden="true">×</span>
+          </button>
         )}
       </For>
     </div>

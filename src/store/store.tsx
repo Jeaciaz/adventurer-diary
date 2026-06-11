@@ -5,6 +5,7 @@ import type {
   AppSettings,
   AttributeId,
   Character,
+  CustomEquipment,
   CustomEdge,
   CustomHindrance,
   CustomSkill,
@@ -122,6 +123,11 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
     },
     removeCustomEdge(id: string) {
       set('character', 'customEdges', (xs) => xs.filter((x) => x.id !== id));
+    },
+    addCustomEquipment(item: CustomEquipment) {
+      set('character', 'customEquipment', (xs) => [...xs, item]);
+      const selected: SelectedEquipment = { itemId: item.id, quantity: 1, type: 'custom' };
+      set('character', 'equipment', (xs) => [...xs, selected]);
     },
     addEquipment(item: SelectedEquipment) {
       set('character', 'equipment', (xs) => {

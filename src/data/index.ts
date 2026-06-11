@@ -95,12 +95,14 @@ const SKILLS = checkedArray(skillsJson, isSkill, 'skills.json');
 export const HINDRANCES = checkedArray(hindrancesJson, isHindrance, 'hindrances.json');
 export const EDGES = checkedArray(edgesJson, isEdge, 'edges.json');
 export const POWERS = checkedArray(powersJson, isPower, 'powers.json');
-export const WEAPONS = checkedArray(weaponsJson, isWeapon, 'equipment-weapons.json');
+export const WEAPONS = checkedArray(weaponsJson, isWeapon, 'equipment-weapons.json').map(
+  normalizeCoreCost,
+);
 export const EQUIPMENT_OTHER = checkedArray(
   equipmentOtherJson,
   isEquipmentItem,
   'equipment-other.json',
-);
+).map(normalizeCoreCost);
 export const ARCANE_BACKGROUNDS: ArcaneBackground[] = checkedArray(
   abJson,
   isArcaneBackground,
@@ -130,3 +132,8 @@ export const ARCANE_BACKGROUND_BY_ID = new Map<string, ArcaneBackground>(
 );
 
 export const BASE_SKILL_IDS = SKILLS.filter((s) => s.isBase).map((s) => s.id);
+
+function normalizeCoreCost<T extends Weapon | EquipmentItem>(item: T): T {
+  if (item.source === 'dl') return item;
+  return { ...item, cost: item.cost / 10 };
+}

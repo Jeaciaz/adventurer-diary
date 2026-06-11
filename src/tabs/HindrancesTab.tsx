@@ -41,8 +41,10 @@ export function HindrancesTab(): JSX.Element {
   const c = (): typeof state.character => state.character;
   const [search, setSearch] = createSignal('');
   const [drawerHindrance, setDrawerHindrance] = createSignal<Hindrance | null>(null);
+  const [customDrawerOpen, setCustomDrawerOpen] = createSignal(false);
   const [customName, setCustomName] = createSignal('');
   const [customSeverity, setCustomSeverity] = createSignal<HindranceSeverity>('minor');
+  const [customDescription, setCustomDescription] = createSignal('');
 
   const addHindrance = (h: Hindrance): void => {
     const severity = defaultSeverity(h);
@@ -52,10 +54,13 @@ export function HindrancesTab(): JSX.Element {
 
   const addCustomHindrance = (): void => {
     const name = customName().trim();
+    const description = customDescription().trim();
     if (name === '') return;
-    actions.addCustomHindrance({ id: makeCustomHindranceId(), name, severity: customSeverity() });
+    actions.addCustomHindrance({ id: makeCustomHindranceId(), name, severity: customSeverity(), description });
     setCustomName('');
     setCustomSeverity('minor');
+    setCustomDescription('');
+    setCustomDrawerOpen(false);
   };
 
   const visible = createMemo(() => {
@@ -93,12 +98,19 @@ export function HindrancesTab(): JSX.Element {
           <ul class="mt-2 flex flex-col gap-1">
             <For each={c().customHindrances}>
               {(h) => (
-                <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
+                <li class="flex items-start justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
                   <div class="flex flex-1 flex-col items-start gap-1 text-left">
                     <div class="flex items-center gap-2 text-sm font-medium">
                       <span>{h.name}</span>
                       <Badge variant="ghost">свой</Badge>
                     </div>
+                    <Show when={h.description}>
+                      {(description) => (
+                        <p class="whitespace-pre-line text-xs leading-snug text-base-content/70">
+                          {description()}
+                        </p>
+                      )}
+                    </Show>
                   </div>
                   <RadioGroup<HindranceSeverity>
                     size="xs"
@@ -162,36 +174,6 @@ export function HindrancesTab(): JSX.Element {
         </Show>
       </Card>
 
-      <Card>
-        <div class="text-xs uppercase opacity-60">Свой изъян</div>
-        <div class="mt-2 flex flex-col gap-2">
-          <Input
-            placeholder="Название"
-            value={customName()}
-            onInput={(e) => setCustomName(e.currentTarget.value)}
-          />
-          <div class="flex items-center justify-between gap-2">
-            <RadioGroup<HindranceSeverity>
-              size="xs"
-              options={[
-                { value: 'minor', label: SEVERITY_RU.minor },
-                { value: 'major', label: SEVERITY_RU.major },
-              ]}
-              value={customSeverity()}
-              onChange={setCustomSeverity}
-            />
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={customName().trim() === ''}
-              onClick={addCustomHindrance}
-            >
-              Добавить
-            </Button>
-          </div>
-        </div>
-      </Card>
-
       <Input
         placeholder="Поиск по изъянам…"
         value={search()}
@@ -236,6 +218,58 @@ export function HindrancesTab(): JSX.Element {
           </For>
         </ul>
       </Card>
+
+      <Button
+        size="md"
+        variant="primary"
+        square
+        class="fixed bottom-20 right-4 z-30 h-14 w-14 rounded-full shadow-lg sm:bottom-6"
+        aria-label="Добавить свой изъян"
+        onClick={() => setCustomDrawerOpen(true)}
+      >
+        <Plus size={24} />
+      </Button>
+
+      <Drawer
+        open={customDrawerOpen()}
+        onClose={() => setCustomDrawerOpen(false)}
+        title="Свой изъян"
+      >
+        <div class="flex flex-col gap-3">
+          <Input
+            label="Название"
+            value={customName()}
+            onInput={(e) => setCustomName(e.currentTarget.value)}
+          />
+          <label class="form-control w-full">
+            <span class="label-text mb-1 block text-sm">Описание</span>
+            <textarea
+              class="textarea textarea-bordered min-h-28 w-full"
+              value={customDescription()}
+              onInput={(event) => setCustomDescription(event.currentTarget.value)}
+            />
+          </label>
+          <div>
+            <span class="label-text mb-1 block text-sm">Тяжесть</span>
+            <RadioGroup<HindranceSeverity>
+              size="xs"
+              options={[
+                { value: 'minor', label: SEVERITY_RU.minor },
+                { value: 'major', label: SEVERITY_RU.major },
+              ]}
+              value={customSeverity()}
+              onChange={setCustomSeverity}
+            />
+          </div>
+          <Button
+            variant="primary"
+            disabled={customName().trim() === ''}
+            onClick={addCustomHindrance}
+          >
+            Добавить
+          </Button>
+        </div>
+      </Drawer>
 
       <Drawer
         open={drawerHindrance() != null}

@@ -41,10 +41,10 @@ export function App(): JSX.Element {
 
   return (
     <StoreProvider>
-      <div class="flex min-h-screen flex-col">
+      <div class="flex h-screen flex-col overflow-hidden">
         <TopBar onOpenSettings={() => setSettingsOpen(true)} />
         <TopTabs items={tabs} active={tab()} onChange={selectTab} />
-        <main class="flex-1 overflow-y-auto px-3 pb-24 pt-3 sm:pb-6">
+        <main class={`min-h-0 flex-1 overflow-y-auto px-3 pb-24 sm:pb-6 ${tab() === 'equipment' ? 'pt-0' : 'pt-3'}`}>
           <Switch>
             <Match when={tab() === 'stats'}>
               <StatsSkillsTab />

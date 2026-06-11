@@ -168,6 +168,7 @@ export interface CustomHindrance {
   id: string;
   name: string;
   severity: HindranceSeverity;
+  description?: string;
 }
 
 export interface SelectedEdge {
@@ -178,7 +179,13 @@ export interface SelectedEdge {
 export interface SelectedEquipment {
   itemId: string;
   quantity: number;
-  type: 'weapon' | 'other';
+  type: 'weapon' | 'other' | 'custom';
+}
+
+export interface CustomEquipment {
+  id: string;
+  name: string;
+  description?: string;
 }
 
 export interface SelectedPower {
@@ -201,6 +208,7 @@ export interface Character {
   edges: SelectedEdge[];
   customEdges: CustomEdge[];
   equipment: SelectedEquipment[];
+  customEquipment: CustomEquipment[];
   arcaneBackgroundId: string | null;
   powers: SelectedPower[];
   pinnedPowerIds: string[];
