@@ -1,9 +1,28 @@
 import { CURRENT_SCHEMA_VERSION } from '../types';
+import { arrayItems, isObjectRecord, isString, objectProp } from '../validation';
 
 type Migration = (data: unknown) => unknown;
 
+function migratePinnedPowers(data: unknown): unknown {
+  if (!isObjectRecord(data)) return data;
+
+  const powers = arrayItems(objectProp(data, 'powers')) ?? [];
+  const learnedIds = new Set(
+    powers.flatMap((power) => {
+      if (!isObjectRecord(power)) return [];
+      const powerId = objectProp(power, 'powerId');
+      return isString(powerId) ? [powerId] : [];
+    }),
+  );
+  const pinnedPowerIds = (arrayItems(objectProp(data, 'pinnedPowerIds')) ?? [])
+    .filter(isString)
+    .filter((powerId) => learnedIds.has(powerId));
+
+  return { ...data, pinnedPowerIds };
+}
+
 const migrations: Record<number, Migration> = {
-  // Future: migrations[2] = (data) => { ... }
+  2: migratePinnedPowers,
 };
 
 export function runMigrations(rawData: unknown, fromVersion: number): unknown {

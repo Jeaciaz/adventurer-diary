@@ -82,9 +82,21 @@ export interface Power {
   powerPoints: string;
   range: string;
   duration: string;
+  attackEffect?: string;
   shortDescription: string;
   fullDescription: string;
   translationNote?: string;
+}
+
+export interface CustomPower {
+  id: string;
+  name: string;
+  powerPoints: string;
+  range: string;
+  duration: string;
+  attackEffect?: string;
+  shortDescription?: string;
+  fullDescription?: string;
 }
 
 export type WeaponCategory = 'melee' | 'ranged' | 'ammo';
@@ -211,6 +223,7 @@ export interface Character {
   customEquipment: CustomEquipment[];
   arcaneBackgroundId: string | null;
   powers: SelectedPower[];
+  customPowers: CustomPower[];
   pinnedPowerIds: string[];
   powerPoints: number;
   money: number;
@@ -226,7 +239,7 @@ export interface AppSettings {
   freeSkillPoints: number;
 }
 
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export const RANK_THRESHOLDS: { rank: Rank; minAdvances: number; ru: string }[] = [
   { rank: 'novice', minAdvances: 0, ru: 'Новичок' },

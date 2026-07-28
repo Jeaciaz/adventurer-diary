@@ -1,7 +1,7 @@
-import { Clock, Ruler, Zap } from 'lucide-solid';
+import { Clock, Crosshair, Ruler, Zap } from 'lucide-solid';
 import { Show, type JSX } from 'solid-js';
 import { Badge } from '../ui';
-import type { Power, Rank } from '../types';
+import type { CustomPower, Power, Rank } from '../types';
 
 const RANK_RU: Record<Rank, string> = {
   novice: 'Новичок',
@@ -22,8 +22,7 @@ export function PowerDetails(props: { power: Power; actions?: JSX.Element }): JS
         </Show>
       </div>
       <PowerStats power={props.power} />
-      <p class="text-sm text-base-content/80">{props.power.shortDescription}</p>
-      <p class="whitespace-pre-line text-sm leading-relaxed">{props.power.fullDescription}</p>
+      <PowerDescriptions power={props.power} />
       <Show when={props.power.translationNote}>
         <p class="text-xs italic opacity-70">{props.power.translationNote}</p>
       </Show>
@@ -32,13 +31,54 @@ export function PowerDetails(props: { power: Power; actions?: JSX.Element }): JS
   );
 }
 
-function PowerStats(props: { power: Power }): JSX.Element {
+export function CustomPowerDetails(props: { power: CustomPower; actions?: JSX.Element }): JSX.Element {
+  return (
+    <div class="flex flex-col gap-3">
+      <div>
+        <Badge variant="primary" outline>
+          своё
+        </Badge>
+      </div>
+      <PowerStats power={props.power} />
+      <PowerDescriptions power={props.power} />
+      {props.actions}
+    </div>
+  );
+}
+
+function PowerDescriptions(props: {
+  power: Pick<Power | CustomPower, 'shortDescription' | 'fullDescription'>;
+}): JSX.Element {
+  return (
+    <>
+      <Show when={props.power.shortDescription}>
+        {(description) => <p class="text-sm text-base-content/80">{description()}</p>}
+      </Show>
+      <Show when={props.power.fullDescription}>
+        {(description) => (
+          <p class="whitespace-pre-line text-sm leading-relaxed">{description()}</p>
+        )}
+      </Show>
+    </>
+  );
+}
+
+function powerRank(power: Power | CustomPower): string | undefined {
+  return 'rank' in power ? RANK_RU[power.rank] : undefined;
+}
+
+function PowerStats(props: { power: Power | CustomPower }): JSX.Element {
+  const rank = (): string | undefined => powerRank(props.power);
+
   return (
     <dl class="grid grid-cols-2 overflow-hidden rounded-lg border border-base-300 text-sm sm:grid-cols-4">
-      <PowerStat label="Ранг" value={RANK_RU[props.power.rank]} />
+      <Show when={rank()}>{(value) => <PowerStat label="Ранг" value={value()} />}</Show>
       <PowerStat label="Пункты силы" value={props.power.powerPoints} icon={<Zap size={13} />} />
       <PowerStat label="Дистанция" value={props.power.range} icon={<Ruler size={13} />} />
       <PowerStat label="Длительность" value={props.power.duration} icon={<Clock size={13} />} />
+      <Show when={props.power.attackEffect}>
+        {(effect) => <PowerStat label="Урон/эффект" value={effect()} icon={<Crosshair size={13} />} />}
+      </Show>
     </dl>
   );
 }

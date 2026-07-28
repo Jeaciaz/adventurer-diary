@@ -4,6 +4,7 @@ import { X } from 'lucide-solid';
 export interface DrawerProps {
   open: boolean;
   onClose: () => void;
+  canClose?: () => boolean;
   title?: string;
   decoration?: JSX.Element;
   children: JSX.Element;
@@ -53,6 +54,7 @@ export function Drawer(props: DrawerProps): JSX.Element {
   };
 
   const requestClose = (): void => {
+    if (props.canClose?.() === false) return;
     clearTimers();
     setVisible(false);
     closeTimer = setTimeout(() => {

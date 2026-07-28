@@ -4,6 +4,7 @@ import type {
   CustomEquipment,
   CustomEdge,
   CustomHindrance,
+  CustomPower,
   Attribute,
   CustomSkill,
   DieStep,
@@ -179,12 +180,26 @@ const powerSchema = v.object({
   powerPoints: v.string(),
   range: v.string(),
   duration: v.string(),
+  attackEffect: v.optional(v.string()),
   shortDescription: v.string(),
   fullDescription: v.string(),
   translationNote: v.optional(v.string()),
 });
 
 export const isPower = guardFromSchema<Power>(powerSchema);
+
+const customPowerSchema = v.object({
+  id: v.string(),
+  name: v.string(),
+  powerPoints: v.string(),
+  range: v.string(),
+  duration: v.string(),
+  attackEffect: v.optional(v.string()),
+  shortDescription: v.optional(v.string()),
+  fullDescription: v.optional(v.string()),
+});
+
+export const isCustomPower = guardFromSchema<CustomPower>(customPowerSchema);
 
 const equipmentBaseSchema = {
   id: v.string(),

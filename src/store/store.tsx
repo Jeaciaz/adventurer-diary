@@ -8,6 +8,7 @@ import type {
   CustomEquipment,
   CustomEdge,
   CustomHindrance,
+  CustomPower,
   CustomSkill,
   DieStep,
   DieStepOrNone,
@@ -164,6 +165,19 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
     },
     removePower(powerId: string) {
       set('character', 'powers', (xs) => xs.filter((x) => x.powerId !== powerId));
+      set('character', 'pinnedPowerIds', (xs) => xs.filter((id) => id !== powerId));
+    },
+    addCustomPower(power: CustomPower) {
+      set('character', 'customPowers', (xs) => [...xs, power]);
+    },
+    updateCustomPower(id: string, power: CustomPower) {
+      set('character', 'customPowers', (xs) =>
+        xs.map((item) => (item.id === id ? power : item)),
+      );
+    },
+    removeCustomPower(id: string) {
+      set('character', 'customPowers', (xs) => xs.filter((power) => power.id !== id));
+      set('character', 'pinnedPowerIds', (xs) => xs.filter((powerId) => powerId !== id));
     },
     togglePinnedPower(powerId: string) {
       set('character', 'pinnedPowerIds', (xs) =>
