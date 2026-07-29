@@ -20,9 +20,9 @@ export function NumberStepper(props: NumberStepperProps): JSX.Element {
     return r;
   };
   return (
-    <div class="form-control">
+    <div class="form-control w-fit max-w-full">
       {props.label ? <span class="label-text mb-1 text-sm">{props.label}</span> : null}
-      <div class="join border border-base-300 rounded-lg">
+      <div class="join w-fit max-w-full self-start rounded-lg border border-base-300">
         <button
           type="button"
           class="btn btn-ghost btn-sm join-item border-0"
@@ -33,7 +33,7 @@ export function NumberStepper(props: NumberStepperProps): JSX.Element {
         </button>
         <input
           type="number"
-          class="input input-sm join-item w-16 border-y-0 border-x border-base-300 text-center focus:outline-none"
+          class="input input-sm join-item w-12 border-x border-y-0 border-base-300 text-center tabular-nums [appearance:textfield] focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           value={props.value}
           onInput={(e) => {
             const n = Number(e.currentTarget.value);

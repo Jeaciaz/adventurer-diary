@@ -46,6 +46,17 @@ export function HindrancesTab(): JSX.Element {
   const [customSeverity, setCustomSeverity] = createSignal<HindranceSeverity>('minor');
   const [customDescription, setCustomDescription] = createSignal('');
 
+  const removeHindrance = (id: string, name: string): boolean => {
+    if (!confirm(`Удалить изъян «${name}»?`)) return false;
+    actions.removeHindrance(id);
+    return true;
+  };
+
+  const removeCustomHindrance = (id: string, name: string): void => {
+    if (!confirm(`Удалить изъян «${name}»?`)) return;
+    actions.removeCustomHindrance(id);
+  };
+
   const addHindrance = (h: Hindrance): void => {
     const severity = defaultSeverity(h);
     if (severity == null) return;
@@ -126,7 +137,7 @@ export function HindrancesTab(): JSX.Element {
                     variant="ghost"
                     square
                     aria-label="Удалить"
-                    onClick={() => actions.removeCustomHindrance(h.id)}
+                    onClick={() => removeCustomHindrance(h.id, h.name)}
                   >
                     <Trash2 size={14} />
                   </Button>
@@ -162,7 +173,7 @@ export function HindrancesTab(): JSX.Element {
                       variant="ghost"
                       square
                       aria-label="Удалить"
-                      onClick={() => actions.removeHindrance(h.id)}
+                      onClick={() => removeHindrance(h.id, h.ru)}
                     >
                       <Trash2 size={14} />
                     </Button>
@@ -299,8 +310,7 @@ export function HindrancesTab(): JSX.Element {
                   <Button
                     variant="error"
                     onClick={() => {
-                      actions.removeHindrance(h().id);
-                      setDrawerHindrance(null);
+                      if (removeHindrance(h().id, h().ru)) setDrawerHindrance(null);
                     }}
                   >
                     Удалить

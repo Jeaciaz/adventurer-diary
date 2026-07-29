@@ -187,6 +187,11 @@ export function EquipmentTab(): JSX.Element {
 
   const customEquipmentById = createMemo(() => new Map(c().customEquipment.map((item) => [item.id, item])));
 
+  const removeEquipment = (itemId: string, name: string): void => {
+    if (!confirm(`Удалить снаряжение «${name}»?`)) return;
+    actions.removeEquipment(itemId);
+  };
+
   const submitCustom = (): void => {
     const name = customName().trim();
     const description = customDescription().trim();
@@ -200,7 +205,7 @@ export function EquipmentTab(): JSX.Element {
 
   return (
     <div class="flex flex-col gap-4">
-      <div class="sticky top-0 z-20 self-start rounded-b-xl border border-t-0 border-base-300 bg-base-200/95 p-2 shadow-lg backdrop-blur">
+      <div class="sticky top-0 z-20 w-full rounded-b-xl border border-t-0 border-base-300 bg-base-200/95 p-2 shadow-lg backdrop-blur">
         <MoneyControl value={c().money} onChange={actions.setMoney} />
       </div>
 
@@ -216,10 +221,10 @@ export function EquipmentTab(): JSX.Element {
                 const customItem = (): typeof state.character.customEquipment[number] | undefined => customEquipmentById().get(sel.itemId);
                 if (sel.type === 'custom') {
                   return (
-                    <li class="flex items-start justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2 py-1">
-                      <div class="flex flex-1 flex-col items-start gap-0.5 text-left">
-                        <div class="flex items-center gap-2 text-sm font-medium">
-                          <span>{customItem()?.name ?? sel.itemId}</span>
+                    <li class="flex flex-col items-stretch gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2 py-2 sm:flex-row sm:items-center">
+                      <div class="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left">
+                        <div class="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+                          <span class="min-w-0 break-words">{customItem()?.name ?? sel.itemId}</span>
                           <Badge variant="primary" outline>
                             своё
                           </Badge>
@@ -232,34 +237,36 @@ export function EquipmentTab(): JSX.Element {
                           )}
                         </Show>
                       </div>
-                      <NumberStepper
-                        value={sel.quantity}
-                        onChange={(v) => actions.setEquipmentQuantity(sel.itemId, v)}
-                        min={0}
-                      />
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        square
-                        aria-label="Удалить"
-                        onClick={() => actions.removeEquipment(sel.itemId)}
-                      >
-                        <Trash2 size={14} />
-                      </Button>
+                      <div class="flex shrink-0 items-center justify-end gap-2">
+                        <NumberStepper
+                          value={sel.quantity}
+                          onChange={(v) => actions.setEquipmentQuantity(sel.itemId, v)}
+                          min={1}
+                        />
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          square
+                          aria-label="Удалить"
+                          onClick={() => removeEquipment(sel.itemId, customItem()?.name ?? sel.itemId)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
                     </li>
                   );
                 }
                 const item = selectedItem(sel);
                 if (item == null) return null;
                 return (
-                  <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
+                  <li class="flex flex-col items-stretch gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-2 sm:flex-row sm:items-center">
                     <button
                       type="button"
-                      class="flex flex-1 flex-col items-start gap-0.5 text-left"
+                      class="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left"
                       onClick={() => setDrawerItem(item)}
                     >
-                      <div class="flex items-center gap-2 text-sm font-medium">
-                        <span>{item.ru}</span>
+                      <div class="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+                        <span class="min-w-0 break-words">{item.ru}</span>
                         <Show when={item.source === 'dl'}>
                           <Badge variant="info" outline>
                             DL
@@ -270,20 +277,22 @@ export function EquipmentTab(): JSX.Element {
                         ${item.cost} · {item.weight} кг
                       </div>
                     </button>
-                    <NumberStepper
-                      value={sel.quantity}
-                      onChange={(v) => actions.setEquipmentQuantity(item.id, v)}
-                      min={0}
-                    />
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      square
-                      aria-label="Удалить"
-                      onClick={() => actions.removeEquipment(item.id)}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
+                    <div class="flex shrink-0 items-center justify-end gap-2">
+                      <NumberStepper
+                        value={sel.quantity}
+                        onChange={(v) => actions.setEquipmentQuantity(item.id, v)}
+                        min={1}
+                      />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        square
+                        aria-label="Удалить"
+                        onClick={() => removeEquipment(item.id, item.ru)}
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
                   </li>
                 );
               }}
@@ -398,35 +407,33 @@ export function EquipmentTab(): JSX.Element {
 function MoneyControl(props: { value: number; onChange: (v: number) => void }): JSX.Element {
   const setMoney = (value: number): void => props.onChange(Math.max(0, value));
   return (
-    <div class="form-control max-w-full">
-      <span class="label-text mb-1 text-sm">Деньги ($)</span>
-      <div class="max-w-full overflow-x-auto">
-        <div class="join min-w-max border border-base-300 rounded-lg">
-          <For each={MONEY_DELTAS}>
-            {(delta) => (
-              <>
-                <Show when={delta === 1}>
-                  <input
-                    type="number"
-                    class="input input-xs join-item w-14 border-y-0 border-x border-base-300 text-center focus:outline-none"
-                    value={props.value}
-                    onInput={(e) => {
-                      const n = Number(e.currentTarget.value);
-                      if (Number.isFinite(n)) setMoney(n);
-                    }}
-                  />
-                </Show>
-                <button
-                  type="button"
-                  class="btn btn-ghost btn-xs join-item border-0 px-2"
-                  onClick={() => setMoney(props.value + delta)}
-                >
-                  {delta === -1 ? '-': delta === 1 ? '+' : delta > 0 ? `+${delta}` : delta}
-                </button>
-              </>
-            )}
-          </For>
-        </div>
+    <div class="form-control w-full">
+      <div class="flex items-center justify-between gap-3">
+        <span class="label-text text-sm">Деньги ($)</span>
+        <input
+          type="number"
+          aria-label="Текущие деньги"
+          class="input input-bordered h-10 w-28 text-center tabular-nums [appearance:textfield] focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+          value={props.value}
+          onInput={(e) => {
+            const n = Number(e.currentTarget.value);
+            if (Number.isFinite(n)) setMoney(n);
+          }}
+        />
+      </div>
+      <div class="mt-2 grid grid-cols-5 gap-1">
+        <For each={MONEY_DELTAS}>
+          {(delta) => (
+            <button
+              type="button"
+              class="btn btn-ghost h-10 min-h-10 border border-base-300 px-1 tabular-nums"
+              aria-label={`${delta > 0 ? 'Добавить' : 'Вычесть'} ${Math.abs(delta)}`}
+              onClick={() => setMoney(props.value + delta)}
+            >
+              {delta > 0 ? `+${delta}` : delta}
+            </button>
+          )}
+        </For>
       </div>
     </div>
   );
@@ -453,14 +460,14 @@ function ItemRow(props: {
 }): JSX.Element {
   const { state, actions } = useStore();
   return (
-    <li class="flex items-start justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
+    <li class="flex min-w-0 items-start justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
       <button
         type="button"
-        class="flex flex-1 flex-col items-start gap-0.5 text-left"
+        class="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left"
         onClick={() => props.onTap(props.item)}
       >
-        <div class="flex items-center gap-2 text-sm font-medium">
-          <span>{props.item.ru}</span>
+        <div class="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+          <span class="min-w-0 break-words">{props.item.ru}</span>
           <Show when={props.item.source === 'dl'}>
             <Badge variant="info" outline>
               DL

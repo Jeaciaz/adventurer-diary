@@ -204,6 +204,17 @@ export function EdgesTab(): JSX.Element {
   const [customEdgeDescription, setCustomEdgeDescription] = createSignal('');
   const [referenceTarget, setReferenceTarget] = createSignal<ReferenceTarget | null>(null);
 
+  const removeEdge = (id: string, name: string): boolean => {
+    if (!confirm(`Удалить черту «${name}»?`)) return false;
+    actions.removeEdge(id);
+    return true;
+  };
+
+  const removeCustomEdge = (id: string, name: string): void => {
+    if (!confirm(`Удалить черту «${name}»?`)) return;
+    actions.removeCustomEdge(id);
+  };
+
   const referenceOpeners: Record<TextReference['kind'], (id: string) => void> = {
     edge: (id) => openEdgeReference(id, setReferenceTarget),
     equipment: (id) => openEquipmentReference(id, setReferenceTarget),
@@ -272,7 +283,7 @@ export function EdgesTab(): JSX.Element {
           <ul class="mt-2 flex flex-col gap-1">
             <For each={c().customEdges}>
               {(edge) => (
-                <CustomEdgeRow edge={edge} onRemove={() => actions.removeCustomEdge(edge.id)} />
+                <CustomEdgeRow edge={edge} onRemove={() => removeCustomEdge(edge.id, edge.name)} />
               )}
             </For>
             <For each={selectedEdges()}>
@@ -291,7 +302,7 @@ export function EdgesTab(): JSX.Element {
                     <NumberStepper
                       value={sel.count ?? 1}
                       onChange={(value) => actions.setEdgeCount(edge.id, value)}
-                      min={0}
+                      min={1}
                     />
                   </Show>
                   <Button
@@ -299,7 +310,7 @@ export function EdgesTab(): JSX.Element {
                     variant="ghost"
                     square
                     aria-label="Удалить"
-                    onClick={() => actions.removeEdge(edge.id)}
+                    onClick={() => removeEdge(edge.id, edge.ru)}
                   >
                     <Trash2 size={14} />
                   </Button>
@@ -378,8 +389,7 @@ export function EdgesTab(): JSX.Element {
                   <Button
                     variant="error"
                     onClick={() => {
-                      actions.removeEdge(e().id);
-                      setDrawerEdge(null);
+                      if (removeEdge(e().id, e().ru)) setDrawerEdge(null);
                     }}
                   >
                     Удалить

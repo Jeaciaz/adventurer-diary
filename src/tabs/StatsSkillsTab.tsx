@@ -62,7 +62,7 @@ export function StatsSkillsTab(): JSX.Element {
       <For each={ATTRIBUTES}>
         {(attr) => (
           <Card>
-            <div class="flex items-center justify-between gap-2">
+            <div class="flex flex-col items-start gap-2">
               <span class="text-base font-semibold">{attr.ru}</span>
               <RadioGroup<DieStep>
                 size="sm"
