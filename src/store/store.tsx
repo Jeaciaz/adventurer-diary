@@ -1,4 +1,4 @@
-import { createContext, useContext, type JSX, type ParentProps } from 'solid-js';
+import { createContext, createMemo, useContext, type JSX, type ParentProps } from 'solid-js';
 import { createStore, produce, type SetStoreFunction } from 'solid-js/store';
 import { createEffect } from 'solid-js';
 import type {
@@ -17,6 +17,7 @@ import type {
   SelectedEquipment,
   SelectedHindrance,
   SelectedPower,
+  Promotions,
 } from '../types';
 import {
   loadCharacter,
@@ -27,7 +28,9 @@ import {
   savePortrait,
   saveSettings,
 } from '../storage/persist';
-import { defaultCharacter, defaultSettings } from '../storage/defaults';
+import { defaultCharacter } from '../storage/defaults';
+import { ARCANE_BACKGROUND_BY_ID } from '../data';
+import { promotionCount, replayPromotions, veteranPromotions } from './promotions';
 
 interface StoreShape {
   character: Character;
@@ -37,13 +40,15 @@ interface StoreShape {
 
 interface StoreApi {
   state: StoreShape;
-  setCharacter: SetStoreFunction<StoreShape>;
   actions: ReturnType<typeof makeActions>;
+  currentCharacter: () => Character;
+  sheetCharacter: () => Character;
+  promotionResults: () => ReturnType<typeof replayPromotions>;
 }
 
 const StoreCtx = createContext<StoreApi>();
 
-function makeActions(set: SetStoreFunction<StoreShape>) {
+function makeActions(set: SetStoreFunction<StoreShape>, state: StoreShape, currentCharacter: () => Character) {
   return {
     setName(name: string) {
       set('character', 'name', name);
@@ -53,9 +58,11 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
       savePortrait(base64);
     },
     setAttribute(id: AttributeId, die: DieStep) {
+      if (state.character.creationLocked) return;
       set('character', 'attributes', id, die);
     },
     setSkill(skillId: string, die: DieStepOrNone) {
+      if (state.character.creationLocked) return;
       set(
         'character',
         'skills',
@@ -66,39 +73,49 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
       );
     },
     addCustomSkill(skill: CustomSkill) {
+      if (state.character.creationLocked) return;
       set('character', 'customSkills', (xs) => [...xs, skill]);
     },
     updateCustomSkill(id: string, patch: Partial<CustomSkill>) {
+      if (state.character.creationLocked) return;
       set('character', 'customSkills', (xs) =>
         xs.map((x) => (x.id === id ? { ...x, ...patch } : x)),
       );
     },
     removeCustomSkill(id: string) {
+      if (state.character.creationLocked) return;
       set('character', 'customSkills', (xs) => xs.filter((x) => x.id !== id));
     },
     addHindrance(h: SelectedHindrance) {
+      if (state.character.creationLocked) return;
       set('character', 'hindrances', (xs) => [...xs, h]);
     },
     removeHindrance(hindranceId: string) {
+      if (state.character.creationLocked) return;
       set('character', 'hindrances', (xs) => xs.filter((x) => x.hindranceId !== hindranceId));
     },
     setHindranceSeverity(hindranceId: string, severity: HindranceSeverity) {
+      if (state.character.creationLocked) return;
       set('character', 'hindrances', (xs) =>
         xs.map((x) => (x.hindranceId === hindranceId ? { ...x, severity } : x)),
       );
     },
     addCustomHindrance(h: CustomHindrance) {
+      if (state.character.creationLocked) return;
       set('character', 'customHindrances', (xs) => [...xs, h]);
     },
     removeCustomHindrance(id: string) {
+      if (state.character.creationLocked) return;
       set('character', 'customHindrances', (xs) => xs.filter((x) => x.id !== id));
     },
     setCustomHindranceSeverity(id: string, severity: HindranceSeverity) {
+      if (state.character.creationLocked) return;
       set('character', 'customHindrances', (xs) =>
         xs.map((x) => (x.id === id ? { ...x, severity } : x)),
       );
     },
     addEdge(e: SelectedEdge) {
+      if (state.character.creationLocked) return;
       set('character', 'edges', (xs) => {
         const existing = xs.find((x) => x.edgeId === e.edgeId);
         if (existing) {
@@ -110,9 +127,11 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
       });
     },
     removeEdge(edgeId: string) {
+      if (state.character.creationLocked) return;
       set('character', 'edges', (xs) => xs.filter((x) => x.edgeId !== edgeId));
     },
     setEdgeCount(edgeId: string, count: number) {
+      if (state.character.creationLocked) return;
       set('character', 'edges', (xs) =>
         count <= 0
           ? xs.filter((x) => x.edgeId !== edgeId)
@@ -120,9 +139,11 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
       );
     },
     addCustomEdge(edge: CustomEdge) {
+      if (state.character.creationLocked) return;
       set('character', 'customEdges', (xs) => [...xs, edge]);
     },
     removeCustomEdge(id: string) {
+      if (state.character.creationLocked) return;
       set('character', 'customEdges', (xs) => xs.filter((x) => x.id !== id));
     },
     addCustomEquipment(item: CustomEquipment) {
@@ -155,12 +176,21 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
       set('character', 'money', money);
     },
     setArcaneBackground(id: string | null) {
+      if (state.character.creationLocked) return;
       set('character', 'arcaneBackgroundId', id);
     },
     setPowerPoints(pp: number) {
       set('character', 'powerPoints', pp);
     },
     addPower(p: SelectedPower) {
+      if (state.character.powers.some((power) => power.powerId === p.powerId)) return;
+      if (state.character.creationLocked) {
+        const c = currentCharacter();
+        const ab = ARCANE_BACKGROUND_BY_ID.get(c.arcaneBackgroundId ?? '');
+        const edge = c.edges.find((item) => item.edgeId === 'novye-sily');
+        const copies = edge ? Math.max(1, edge.count ?? 1) : 0;
+        if (c.powers.length >= (ab?.startingPowers ?? 0) + copies * 2) return;
+      }
       set('character', 'powers', (xs) => [...xs, p]);
     },
     removePower(powerId: string) {
@@ -194,7 +224,16 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
       set('character', 'fatigue', n);
     },
     setAdvances(n: number) {
-      set('character', 'advancesUsed', Math.max(0, n));
+      set('character', 'advancesUsed', promotionCount(n));
+    },
+    setCreationLocked(locked: boolean) {
+      set('character', 'creationLocked', locked);
+    },
+    setPromotionAllocations(allocations: Promotions['allocations']) {
+      set('character', 'promotions', 'allocations', () => allocations);
+    },
+    dismissLegacyWarning() {
+      set('character', 'promotions', 'legacyBaseline', false);
     },
     setDerived(field: keyof Character['derivedStats'], value: number) {
       set('character', 'derivedStats', field, value);
@@ -205,8 +244,11 @@ function makeActions(set: SetStoreFunction<StoreShape>) {
     setFreeSkillPoints(points: number) {
       set('settings', 'freeSkillPoints', Math.max(0, points));
     },
+    setDoubleEveryFourthPromotion(enabled: boolean) {
+      set('settings', 'doubleEveryFourthPromotion', enabled);
+    },
     resetCharacter() {
-      set('character', { ...defaultCharacter });
+      set('character', structuredClone(defaultCharacter));
       set('portrait', null);
       clearStorage();
     },
@@ -225,13 +267,18 @@ export function StoreProvider(props: ParentProps): JSX.Element {
     portrait: loadPortrait(),
   });
 
-  const actions = makeActions(setStore);
+  const promotionResults = createMemo(() => replayPromotions(state.character, state.settings));
+  const currentCharacter = () => promotionResults().character;
+  const sheetCharacter = () => state.character.creationLocked
+    ? currentCharacter()
+    : { ...state.character, advancesUsed: veteranPromotions(state.character) };
+  const actions = makeActions(setStore, state, currentCharacter);
 
   createEffect(() => saveCharacter(state.character));
   createEffect(() => saveSettings(state.settings));
 
   return (
-    <StoreCtx.Provider value={{ state, setCharacter: setStore, actions }}>
+    <StoreCtx.Provider value={{ state, actions, currentCharacter, sheetCharacter, promotionResults }}>
       {props.children}
     </StoreCtx.Provider>
   );

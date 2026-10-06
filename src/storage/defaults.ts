@@ -3,9 +3,12 @@ import type { AppSettings, Character } from '../types';
 export const defaultSettings: AppSettings = {
   deadlandsEnabled: true,
   freeSkillPoints: 0,
+  doubleEveryFourthPromotion: false,
 };
 
 export const defaultCharacter: Character = {
+  creationLocked: false,
+  promotions: { allocations: {}, legacyBaseline: false },
   name: '',
   attributes: {
     agility: 'd4',

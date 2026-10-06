@@ -1,5 +1,5 @@
 import { CURRENT_SCHEMA_VERSION } from '../types';
-import type { AppSettings, Character } from '../types';
+import type { AppSettings, Character, Promotions } from '../types';
 import {
   arrayItems,
   isBoolean,
@@ -12,6 +12,7 @@ import {
   isDieStepOrNone,
   isFiniteNumber,
   isObjectRecord,
+  isPromotionAllocation,
   isSelectedEdge,
   isSelectedEquipment,
   isSelectedHindrance,
@@ -21,7 +22,8 @@ import {
 } from '../validation';
 import { defaultCharacter, defaultSettings } from './defaults';
 import { STORAGE_KEYS } from './keys';
-import { runMigrations } from './migrations';
+import { migratePromotionBaseline, runMigrations } from './migrations';
+import { MAX_PROMOTIONS, promotionCount } from '../store/promotions';
 
 function readJson(key: string): unknown {
   try {
@@ -207,8 +209,25 @@ function parseDerivedStats(value: unknown): Character['derivedStats'] {
   };
 }
 
-function mergeCharacter(value: unknown): Character {
+function parsePromotions(value: unknown): Promotions {
+  const source = propFrom(value, 'allocations');
+  const allocations: Promotions['allocations'] = {};
+  if (isObjectRecord(source)) {
+    for (const key of Object.keys(source)) {
+      if (!/^(veteran-[1-4]|earned-[1-9]\d*(?:-bonus)?)$/.test(key)) continue;
+      const match = /^earned-(\d+)(-bonus)?$/.exec(key);
+      if (match && (Number(match[1]) > MAX_PROMOTIONS || (match[2] && Number(match[1]) % 4 !== 0))) continue;
+      allocations[key] = parseArray(objectProp(source, key), isPromotionAllocation);
+    }
+  }
+  return { allocations, legacyBaseline: booleanField(value, 'legacyBaseline', false) };
+}
+
+function mergeCharacter(raw: unknown): Character {
+  const value = migratePromotionBaseline(raw);
   return {
+    creationLocked: booleanField(value, 'creationLocked', false),
+    promotions: parsePromotions(propFrom(value, 'promotions')),
     name: stringField(value, 'name', defaultCharacter.name),
     attributes: parseAttributes(propFrom(value, 'attributes')),
     skills: parseSkills(propFrom(value, 'skills')),
@@ -227,7 +246,7 @@ function mergeCharacter(value: unknown): Character {
     money: numberField(value, 'money', defaultCharacter.money),
     wounds: numberField(value, 'wounds', defaultCharacter.wounds),
     fatigue: numberField(value, 'fatigue', defaultCharacter.fatigue),
-    advancesUsed: numberField(value, 'advancesUsed', defaultCharacter.advancesUsed),
+    advancesUsed: promotionCount(numberField(value, 'advancesUsed', defaultCharacter.advancesUsed)),
     derivedStats: parseDerivedStats(propFrom(value, 'derivedStats')),
     abFilterEnabled: booleanField(value, 'abFilterEnabled', defaultCharacter.abFilterEnabled),
   };
@@ -237,6 +256,7 @@ function mergeSettings(value: unknown): AppSettings {
   return {
     deadlandsEnabled: booleanField(value, 'deadlandsEnabled', defaultSettings.deadlandsEnabled),
     freeSkillPoints: numberField(value, 'freeSkillPoints', defaultSettings.freeSkillPoints),
+    doubleEveryFourthPromotion: booleanField(value, 'doubleEveryFourthPromotion', false),
   };
 }
 

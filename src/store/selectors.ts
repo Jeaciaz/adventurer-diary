@@ -112,9 +112,14 @@ export function edgeCap(): number {
   return 2;
 }
 
+export function edgeCount(c: Character): number {
+  return c.edges.reduce((total, edge) => total + Math.max(1, edge.count ?? 1), c.customEdges.length);
+}
+
 /**
  * Unified free-points pool.
- * earned = advancesUsed × 2 + minor × 1 + major × 2
+ * Creation-only pool. Promotions are spent separately through ordered allocations.
+ * earned = minor × 1 + major × 2
  * spent  = max(0, skillSpent − skillCap) × 1
  *        + max(0, attrSpent − 5)         × 2
  *        + max(0, edges     − edgeCap)   × 2
@@ -127,10 +132,10 @@ function computeFreePoints(args: {
   freeSkillPoints?: number;
 }): number {
   const { c, hindrancePoints, skillSpent, attrSpent, freeSkillPoints = 0 } = args;
-  const earned = c.advancesUsed * 2 + hindrancePoints.minor + hindrancePoints.major;
+  const earned = hindrancePoints.minor + hindrancePoints.major;
   const skillOver = Math.max(0, skillSpent - skillCap(c, freeSkillPoints));
   const attrOver = Math.max(0, attrSpent - attrCap());
-  const edgesOver = Math.max(0, c.edges.length - edgeCap());
+  const edgesOver = Math.max(0, edgeCount(c) - edgeCap());
   return earned - skillOver - attrOver * 2 - edgesOver * 2;
 }
 

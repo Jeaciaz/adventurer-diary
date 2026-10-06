@@ -54,6 +54,14 @@ export function SettingsDrawer(props: { open: boolean; onClose: () => void }): J
         <div class="divider my-1" />
 
         <div class="flex flex-col gap-2">
+          <Toggle label="Двойное каждое 4-е повышение" checked={state.settings.doubleEveryFourthPromotion}
+            onChange={actions.setDoubleEveryFourthPromotion} />
+          <p class="text-xs leading-relaxed opacity-70">Добавляет бонусное распределение 2 очков после повышений 4, 8, 12 и далее, без изменения их числа и ранга. Стартовые повышения «Ветерана Дикого Запада» не получают бонус. При отключении выбор бонусов сохраняется.</p>
+        </div>
+
+        <div class="divider my-1" />
+
+        <div class="flex flex-col gap-2">
           <div>
             <div class="text-sm font-semibold">Свободные очки навыков</div>
             <div class="text-xs opacity-70">Добавляются к лимиту очков навыков.</div>

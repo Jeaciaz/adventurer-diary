@@ -210,7 +210,22 @@ export interface DerivedStats {
   toughness: number;
 }
 
+export type PromotionAllocation =
+  | { kind: 'attribute'; attributeId: AttributeId; points: 2 }
+  | { kind: 'learnSkill'; skillId: string; points: 2; customSkill?: Omit<CustomSkill, 'die'> }
+  | { kind: 'skill'; skillId: string; points: 1 | 2 }
+  | { kind: 'edge'; edgeId: string; points: 2; arcaneBackgroundId?: string }
+  | { kind: 'customEdge'; edge: CustomEdge; points: 2 };
+
+export interface Promotions {
+  allocations: Record<string, PromotionAllocation[]>;
+  legacyBaseline: boolean;
+}
+
 export interface Character {
+  // Attributes, skills and edges are the editable creation baseline.
+  creationLocked: boolean;
+  promotions: Promotions;
   name: string;
   attributes: Record<AttributeId, DieStep>;
   skills: Record<string, DieStepOrNone>;
@@ -229,7 +244,7 @@ export interface Character {
   money: number;
   wounds: number;
   fatigue: number;
-  advancesUsed: number;
+  advancesUsed: number; // Manually earned promotions, excluding the veteran's four.
   derivedStats: DerivedStats;
   abFilterEnabled: boolean;
 }
@@ -237,9 +252,10 @@ export interface Character {
 export interface AppSettings {
   deadlandsEnabled: boolean;
   freeSkillPoints: number;
+  doubleEveryFourthPromotion: boolean;
 }
 
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 export const RANK_THRESHOLDS: { rank: Rank; minAdvances: number; ru: string }[] = [
   { rank: 'novice', minAdvances: 0, ru: 'Новичок' },

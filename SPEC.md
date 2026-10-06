@@ -18,11 +18,11 @@ Mobile-first PWA pocket character sheet for Savage Worlds Adventure Edition (SWA
 | Key | Contents |
 |---|---|
 | `swade:character` | character data (json) |
-| `swade:settings` | `{ deadlandsEnabled: boolean }` |
+| `swade:settings` | `{ deadlandsEnabled, freeSkillPoints, doubleEveryFourthPromotion }` |
 | `swade:portrait` | portrait base64 string (≤2MB) |
 | `swade:schemaVersion` | integer, drives migrations |
 
-Schema versioning + migration pipeline from day one. Bumped on breaking shape changes.
+Schema version 2 stores the creation baseline, lock, earned promotion count, and ordered point allocations. Version 1 saves retain their current stats as the baseline and their total promotion count, with empty allocation fields and a migration warning. Exports/imports include all progression data and settings.
 
 ## Top bar (always visible)
 
@@ -62,44 +62,50 @@ For each of 5 attributes (Ловкость, Смекалка, Характер, 
   - Custom skills deletable
   - Visualize cost-multiplier when skill > attr (e.g. badge "×2")
 
-**Validation:** soft warn (allow over-spend, badge in red).
+**Creation lock:** when unlocked, stats, skills, edges, and hindrances edit creation values. When locked, they display the replayed current sheet and cannot be edited directly; current attribute and skill dice remain readable. Lock icons by the name and status toggle show the state and explain unlocking via a tooltip. Derived stats, equipment, money, wounds, fatigue, and power point resources remain editable. Creation budget counters always use the baseline, independent of promotions.
+
+**Validation:** soft warn (allow over-spend, badge in red). Warnings do not prevent locking.
 
 ---
 
 ## Tab 2: Состояние
 
 Fields:
-- **Раны** — radio 0–3
-- **Усталость** — radio 0–2
-- **Ранг** — read-only badge, derived from `advancesUsed`:
-  - 0–3 Новичок, 4–7 Закалённый, 8–11 Ветеран, 12–15 Герой, 16+ Легенда
-- **Использовано повышений** — number stepper
-- **Свободные очки** — read-only derived counter (formula below)
+- **Персонаж создан** — reversible creation-lock toggle; unlocking never snapshots promoted stats back into creation values.
+- **Раны** — radio 0–3; **Усталость** — radio 0–2.
+- **Ранг** — read-only, based on earned promotions plus the veteran's four starting promotions: 0–3 Новичок, 4–7 Закалённый, 8–11 Ветеран, 12–15 Герой, 16+ Легенда. Empty/invalid promotions still count; bonus fields do not.
+- **Получено повышений** — manual count of earned promotions, excluding the veteran's automatic four.
+- **Распределить повышения** — opens a modal with one editable field per promotion, in chronological order; any earlier field can be edited.
+- Decreasing the earned count retains removed selections as inactive; increasing it restores them.
+- Visible promotion list shows current allocations, effects, errors, and warnings; there is no history of edits.
 
-### Unified point pool
-
-Single derived counter replaces all conversion UI. No advance grant-type modal, no explicit hindrance trades, no money-from-hindrance.
+### Creation point pool
 
 ```
 freePoints =
-    advancesUsed × 2
-  + minorHindrances × 1
-  + majorHindrances × 2
+    minorHindrances × 1 + majorHindrances × 2
   − max(0, skillPointsSpent − skillCap) × 1
   − max(0, attrPointsSpent − 5)         × 2
-  − max(0, edgesTaken − edgeCap)        × 2
+  − max(0, edgesTaken − 2)             × 2
 ```
 
-Where:
-- `skillCap = 12 + (5 if Старость taken else 0)`
-- `edgeCap = 2` (free Novice edge from human race + baseline edge slot)
-- Each over-cap **skill** point costs 1 from pool
-- Each over-cap **attr** point costs 2 from pool
-- Each over-cap **edge** costs 2 from pool
+`skillCap = 12 + freeSkillPoints + (5 if Старость is taken)`. Repeated edge copies and custom edges each count. Only creation values consume this pool; promotions never grant or consume creation points. Overspending and hindrance totals above four warn but do not block locking.
 
-When `freePoints < 0` → red warning badge in Status + Параметры/Навыки/Черты tabs. Soft warn, never blocks.
+### Ordered promotions
 
-`advancesUsed` is a single number stepper. Each advance silently grants +2 to pool — user spends it implicitly by raising attrs/skills/edges. No grant-type choice. (The book's "remove minor hindrance" advance option is dropped.)
+Each completed field has exactly 2 points. Empty fields and unfinished choices remain pending, apply no effects, and show no error until their targets are selected. Choices:
+- Raise an attribute one die step: 2 points.
+- Learn an untrained skill at d4: 2 points (the table's rule).
+- Invest 2 points in one existing skill, or 1 point in each of two skill allocations. Each die step costs 1 while below the linked attribute, otherwise 2. Costs and resulting dice are recalculated at that point in the sequence.
+- Acquire an edge or custom edge: 2 points. New custom skills can also be defined and learned in the modal. Acquiring Мистический дар includes choosing the arcane background.
+
+An existing-skill allocation never learns an untrained/deleted skill implicitly. An impossible or incompletely spent allocation makes the entire field red and ineffective; it remains saved and editable. Replay continues with later fields after skipping invalid ones. Edge prerequisites and attribute frequency limits warn but do not suppress otherwise valid fields. Empty fields apply nothing. Modal edits are a draft: apply saves all fields; cancel discards the draft.
+
+**Homebrew:** `doubleEveryFourthPromotion` defaults OFF. When ON, an additional 2-point field appears immediately after earned total promotions 4, 8, 12, etc. These fields do not increase the count or rank. Turning the rule OFF preserves filled bonus fields inactive; turning it back ON restores them. Inactive fields can be revealed in the modal.
+
+**Ветеран Дикого Запада:** choosing `veteran-o-the-weird-west` in the creation baseline automatically adds four ordinary starting fields and four promotions toward rank. Starting #4 receives no bonus. Earned promotions begin at total #5; the first possible bonus is total #8. Removing the creation edge disables its four fields while retaining their selections. The edge cannot be acquired through promotion fields.
+
+The book's hindrance-removal promotion option remains out of scope. Powers may be selected within slots earned through the current arcane background and Новые силы; reducing available slots retains existing selections with a warning.
 
 ---
 
@@ -169,6 +175,8 @@ No trappings.
 ## Settings (gear icon in top bar)
 
 - **Deadlands** toggle (default ON)
+- **Двойное каждое 4-е повышение** toggle (default OFF; includes the veteran exception)
+- **Свободные очки навыков** — extra creation skill points
 - **Сбросить персонажа** (reset, w/ confirm dialog)
 - **Экспорт JSON** — download character as file
 - **Импорт JSON** — upload + validate + replace
@@ -242,6 +250,6 @@ After spec confirmed, spawn agent (general-purpose or Explore) with:
 - Bennies (фишки)
 - Trappings (Проявления)
 - Stat auto-calc from attrs/edges/armor
-- Backwards-compat once schema bumped (use migrations)
+- Reconstruction of historical promotion allocations from legacy final stats
 - Multi-character
 - Backend / sync / multiplayer

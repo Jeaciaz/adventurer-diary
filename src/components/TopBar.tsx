@@ -2,6 +2,7 @@ import { Show, type JSX } from 'solid-js';
 import { Settings as SettingsIcon, UserRound } from 'lucide-solid';
 import { useStore } from '../store/store';
 import { FileUpload, pushToast } from '../ui';
+import { CreationLockIcon } from './CreationLockIcon';
 
 const PORTRAIT_MAX_BYTES = 2 * 1024 * 1024;
 
@@ -48,12 +49,15 @@ export function TopBar(props: { onOpenSettings: () => void }): JSX.Element {
           </div>
         </div>
       </FileUpload>
-      <input
-        class="input input-ghost flex-1 text-base font-semibold focus:outline-none"
-        placeholder="Имя персонажа"
-        value={state.character.name}
-        onInput={(e) => actions.setName(e.currentTarget.value)}
-      />
+      <div class="flex min-w-0 flex-1 items-center gap-1">
+        <CreationLockIcon />
+        <input
+          class="input input-ghost min-w-0 flex-1 text-base font-semibold focus:outline-none"
+          placeholder="Имя персонажа"
+          value={state.character.name}
+          onInput={(e) => actions.setName(e.currentTarget.value)}
+        />
+      </div>
       <button
         type="button"
         class="btn btn-ghost btn-sm btn-square"

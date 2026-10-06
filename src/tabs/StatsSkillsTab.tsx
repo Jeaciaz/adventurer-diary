@@ -34,10 +34,10 @@ const BASE_SKILL_DIE_OPTIONS = SKILL_DIE_OPTIONS.map((opt) => ({
 }));
 
 export function StatsSkillsTab(): JSX.Element {
-  const { state, actions } = useStore();
-  const c = (): typeof state.character => state.character;
+  const { state, actions, sheetCharacter } = useStore();
+  const c = sheetCharacter;
 
-  const totals = createCharacterPointTotalsMemo(c, () => state.settings.freeSkillPoints ?? 0);
+  const totals = createCharacterPointTotalsMemo(() => state.character, () => state.settings.freeSkillPoints ?? 0);
 
   return (
     <div class="flex flex-col gap-4">
@@ -70,6 +70,8 @@ export function StatsSkillsTab(): JSX.Element {
                 value={c().attributes[attr.id]}
                 onChange={(v) => actions.setAttribute(attr.id, v)}
                 ariaLabel={attr.ru}
+                readOnlyClass="w-14 shrink-0 tabular-nums"
+                disabled={state.character.creationLocked}
               />
             </div>
             <div class="mt-3 flex flex-col gap-2">
@@ -95,6 +97,8 @@ export function StatsSkillsTab(): JSX.Element {
                         value={die()}
                         onChange={(v) => actions.setSkill(skill.id, v)}
                         ariaLabel={skill.ru}
+                        readOnlyClass="w-14 shrink-0 tabular-nums"
+                        disabled={state.character.creationLocked}
                       />
                     </div>
                   );
@@ -125,12 +129,15 @@ export function StatsSkillsTab(): JSX.Element {
                           value={die()}
                           onChange={(v) => actions.updateCustomSkill(cs.id, { die: v })}
                           ariaLabel={cs.name}
+                          readOnlyClass="w-14 shrink-0 tabular-nums"
+                          disabled={state.character.creationLocked}
                         />
                         <Button
                           size="xs"
                           variant="ghost"
                           square
                           aria-label="Удалить навык"
+                          disabled={state.character.creationLocked}
                           onClick={() => actions.removeCustomSkill(cs.id)}
                         >
                           <Trash2 size={14} />
@@ -140,7 +147,7 @@ export function StatsSkillsTab(): JSX.Element {
                   );
                 }}
               </For>
-              <AddCustomSkillButton attrId={attr.id} attrRu={attr.ru} />
+              <Show when={!state.character.creationLocked}><AddCustomSkillButton attrId={attr.id} attrRu={attr.ru} /></Show>
             </div>
           </Card>
         )}

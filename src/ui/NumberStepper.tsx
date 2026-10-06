@@ -9,6 +9,7 @@ export interface NumberStepperProps {
   step?: number;
   label?: string;
   suffix?: string;
+  disabled?: boolean;
 }
 
 export function NumberStepper(props: NumberStepperProps): JSX.Element {
@@ -27,6 +28,7 @@ export function NumberStepper(props: NumberStepperProps): JSX.Element {
           type="button"
           class="btn btn-ghost btn-sm join-item border-0"
           aria-label="Уменьшить"
+          disabled={props.disabled || (props.min !== undefined && props.value <= props.min)}
           onClick={() => props.onChange(clamp(props.value - step()))}
         >
           <Minus size={16} />
@@ -35,6 +37,8 @@ export function NumberStepper(props: NumberStepperProps): JSX.Element {
           type="number"
           class="input input-sm join-item w-12 border-x border-y-0 border-base-300 text-center tabular-nums [appearance:textfield] focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           value={props.value}
+          aria-label={props.label}
+          disabled={props.disabled}
           onInput={(e) => {
             const n = Number(e.currentTarget.value);
             if (Number.isFinite(n)) props.onChange(clamp(n));
@@ -49,6 +53,7 @@ export function NumberStepper(props: NumberStepperProps): JSX.Element {
           type="button"
           class="btn btn-ghost btn-sm join-item border-0"
           aria-label="Увеличить"
+          disabled={props.disabled || (props.max !== undefined && props.value >= props.max)}
           onClick={() => props.onChange(clamp(props.value + step()))}
         >
           <Plus size={16} />

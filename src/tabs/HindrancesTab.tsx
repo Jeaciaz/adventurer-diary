@@ -37,8 +37,8 @@ function makeCustomHindranceId(): string {
 }
 
 export function HindrancesTab(): JSX.Element {
-  const { state, actions } = useStore();
-  const c = (): typeof state.character => state.character;
+  const { state, actions, sheetCharacter } = useStore();
+  const c = sheetCharacter;
   const [search, setSearch] = createSignal('');
   const [drawerHindrance, setDrawerHindrance] = createSignal<Hindrance | null>(null);
   const [customDrawerOpen, setCustomDrawerOpen] = createSignal(false);
@@ -131,12 +131,14 @@ export function HindrancesTab(): JSX.Element {
                     ]}
                     value={h.severity}
                     onChange={(v) => actions.setCustomHindranceSeverity(h.id, v)}
+                    disabled={state.character.creationLocked}
                   />
                   <Button
                     size="xs"
                     variant="ghost"
                     square
                     aria-label="Удалить"
+                    disabled={state.character.creationLocked}
                     onClick={() => removeCustomHindrance(h.id, h.name)}
                   >
                     <Trash2 size={14} />
@@ -163,6 +165,7 @@ export function HindrancesTab(): JSX.Element {
                         options={h.severityOptions.map((s) => ({ value: s, label: SEVERITY_RU[s] }))}
                         value={sel.severity}
                         onChange={(v) => actions.setHindranceSeverity(h.id, v)}
+                        disabled={state.character.creationLocked}
                       />
                     </Show>
                     <Show when={h.severityOptions.length === 1}>
@@ -173,6 +176,7 @@ export function HindrancesTab(): JSX.Element {
                       variant="ghost"
                       square
                       aria-label="Удалить"
+                      disabled={state.character.creationLocked}
                       onClick={() => removeHindrance(h.id, h.ru)}
                     >
                       <Trash2 size={14} />
@@ -214,32 +218,36 @@ export function HindrancesTab(): JSX.Element {
                     </For>
                   </div>
                 </button>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  square
-                  aria-label="Добавить"
-                  disabled={defaultSeverity(h) == null}
-                  onClick={() => addHindrance(h)}
-                >
-                  <Plus size={14} />
-                </Button>
+                <Show when={!state.character.creationLocked}>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    square
+                    aria-label="Добавить"
+                    disabled={defaultSeverity(h) == null}
+                    onClick={() => addHindrance(h)}
+                  >
+                    <Plus size={14} />
+                  </Button>
+                </Show>
               </li>
             )}
           </For>
         </ul>
       </Card>
 
-      <Button
-        size="md"
-        variant="primary"
-        square
-        class="fixed bottom-20 right-4 z-30 h-14 w-14 rounded-full shadow-lg sm:bottom-6"
-        aria-label="Добавить свой изъян"
-        onClick={() => setCustomDrawerOpen(true)}
-      >
-        <Plus size={24} />
-      </Button>
+      <Show when={!state.character.creationLocked}>
+        <Button
+          size="md"
+          variant="primary"
+          square
+          class="fixed bottom-20 right-4 z-30 h-14 w-14 rounded-full shadow-lg sm:bottom-6"
+          aria-label="Добавить свой изъян"
+          onClick={() => setCustomDrawerOpen(true)}
+        >
+          <Plus size={24} />
+        </Button>
+      </Show>
 
       <Drawer
         open={customDrawerOpen()}
@@ -274,7 +282,7 @@ export function HindrancesTab(): JSX.Element {
           </div>
           <Button
             variant="primary"
-            disabled={customName().trim() === ''}
+            disabled={state.character.creationLocked || customName().trim() === ''}
             onClick={addCustomHindrance}
           >
             Добавить
@@ -309,6 +317,7 @@ export function HindrancesTab(): JSX.Element {
                 fallback={
                   <Button
                     variant="error"
+                    disabled={state.character.creationLocked}
                     onClick={() => {
                       if (removeHindrance(h().id, h().ru)) setDrawerHindrance(null);
                     }}
@@ -323,7 +332,7 @@ export function HindrancesTab(): JSX.Element {
                     addHindrance(h());
                     setDrawerHindrance(null);
                   }}
-                  disabled={defaultSeverity(h()) == null}
+                  disabled={state.character.creationLocked || defaultSeverity(h()) == null}
                 >
                   Добавить
                 </Button>

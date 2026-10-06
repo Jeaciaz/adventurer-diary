@@ -13,6 +13,7 @@ import type {
   EquipmentItem,
   Hindrance,
   Power,
+  PromotionAllocation,
   SelectedEdge,
   SelectedEquipment,
   SelectedHindrance,
@@ -163,6 +164,19 @@ const customEdgeSchema = v.object({
 });
 
 export const isCustomEdge = guardFromSchema<CustomEdge>(customEdgeSchema);
+
+const promotionAllocationSchema = v.variant('kind', [
+  v.object({ kind: v.literal('attribute'), attributeId: attributeIdSchema, points: v.literal(2) }),
+  v.object({
+    kind: v.literal('learnSkill'), skillId: v.string(), points: v.literal(2),
+    customSkill: v.optional(v.object({ id: v.string(), name: v.string(), linkedAttribute: attributeIdSchema })),
+  }),
+  v.object({ kind: v.literal('skill'), skillId: v.string(), points: v.picklist([1, 2]) }),
+  v.object({ kind: v.literal('edge'), edgeId: v.string(), points: v.literal(2), arcaneBackgroundId: v.optional(v.string()) }),
+  v.object({ kind: v.literal('customEdge'), edge: customEdgeSchema, points: v.literal(2) }),
+]);
+
+export const isPromotionAllocation = guardFromSchema<PromotionAllocation>(promotionAllocationSchema);
 
 const customEquipmentSchema = v.object({
   id: v.string(),

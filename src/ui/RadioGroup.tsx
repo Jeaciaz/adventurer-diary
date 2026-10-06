@@ -14,6 +14,8 @@ export interface RadioGroupProps<T extends string | number | null> {
   onChange: (v: T) => void;
   size?: 'xs' | 'sm' | 'md';
   ariaLabel?: string;
+  disabled?: boolean;
+  readOnlyClass?: string;
 }
 
 const sizeClass = { xs: 'btn-xs', sm: 'btn-sm', md: '' };
@@ -40,18 +42,24 @@ export function RadioGroup<T extends string | number | null>(
 ): JSX.Element {
   const cmp = (a: T, b: T): boolean => a === b;
   return (
-    <div class="join" role="radiogroup" aria-label={props.ariaLabel}>
-      <For each={props.options}>
-        {(opt) => (
-          <RadioButton
-            option={opt}
-            selected={cmp(opt.value, props.value)}
-            size={props.size}
-            onChange={props.onChange}
-          />
-        )}
-      </For>
-    </div>
+    <Show when={!props.disabled} fallback={
+      <span class={cx(['badge badge-lg badge-primary font-semibold', props.readOnlyClass])} aria-label={props.ariaLabel}>
+        {props.options.find((option) => cmp(option.value, props.value))?.label}
+      </span>
+    }>
+      <div class="join" role="radiogroup" aria-label={props.ariaLabel}>
+        <For each={props.options}>
+          {(opt) => (
+            <RadioButton
+              option={opt}
+              selected={cmp(opt.value, props.value)}
+              size={props.size}
+              onChange={props.onChange}
+            />
+          )}
+        </For>
+      </div>
+    </Show>
   );
 }
 

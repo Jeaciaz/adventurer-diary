@@ -255,8 +255,8 @@ function serializeDraft(draft: CustomPowerDraft): string {
 }
 
 export function PowersTab(): JSX.Element {
-  const { state, actions } = useStore();
-  const character = (): typeof state.character => state.character;
+  const { state, actions, currentCharacter } = useStore();
+  const character = currentCharacter;
   const [drawerTarget, setDrawerTarget] = createSignal<PowerDrawerTarget | null>(null);
   const [editorOpen, setEditorOpen] = createSignal(false);
   const [editingCustomPowerId, setEditingCustomPowerId] = createSignal<string | null>(null);
@@ -359,6 +359,7 @@ export function PowersTab(): JSX.Element {
             value={arcaneBackgroundValue(character())}
             onChange={(value) => actions.setArcaneBackground(arcaneBackgroundFromSelect(value))}
             placeholder="— нет —"
+            disabled={state.character.creationLocked}
           />
           <NumberStepper
             label="Пункты силы"
@@ -385,6 +386,9 @@ export function PowersTab(): JSX.Element {
             По дару: {officialPowerCount()}/{powerSlots()}
           </Badge>
         </div>
+        <Show when={officialPowerCount() > powerSlots()}>
+          <p class="mt-2 text-xs text-warning">Выбрано больше сил, чем доступно. Проверьте повышения и мистический дар.</p>
+        </Show>
         <Show
           when={learnedPowers().length > 0}
           fallback={<div class="mt-2 text-sm opacity-60">Ещё не изучены.</div>}
@@ -445,6 +449,7 @@ export function PowersTab(): JSX.Element {
                             variant="ghost"
                             square
                             aria-label="Изучить"
+                            disabled={state.character.creationLocked && officialPowerCount() >= powerSlots()}
                             onClick={() => actions.addPower({ powerId: power.id })}
                           >
                             <Plus size={14} />
@@ -505,6 +510,7 @@ export function PowersTab(): JSX.Element {
                 >
                   <Button
                     variant="primary"
+                    disabled={state.character.creationLocked && officialPowerCount() >= powerSlots()}
                     onClick={() => {
                       actions.addPower({ powerId: power().id });
                       setDrawerTarget(null);

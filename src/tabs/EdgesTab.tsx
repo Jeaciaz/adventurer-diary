@@ -195,8 +195,8 @@ function RequirementBadge(props: { requirement: EdgeRequirement; character: Char
 }
 
 export function EdgesTab(): JSX.Element {
-  const { state, actions } = useStore();
-  const c = (): typeof state.character => state.character;
+  const { state, actions, sheetCharacter } = useStore();
+  const c = sheetCharacter;
   const [search, setSearch] = createSignal('');
   const [drawerEdge, setDrawerEdge] = createSignal<Edge | null>(null);
   const [customDrawerOpen, setCustomDrawerOpen] = createSignal(false);
@@ -269,8 +269,8 @@ export function EdgesTab(): JSX.Element {
         <Counter
           label="Черты"
           value={selectedEdgeTotal()}
-          cap={edgeCap()}
-          warn={selectedEdgeTotal() > edgeCap()}
+          cap={state.character.creationLocked ? undefined : edgeCap()}
+          warn={!state.character.creationLocked && selectedEdgeTotal() > edgeCap()}
         />
       </div>
 
@@ -283,7 +283,7 @@ export function EdgesTab(): JSX.Element {
           <ul class="mt-2 flex flex-col gap-1">
             <For each={c().customEdges}>
               {(edge) => (
-                <CustomEdgeRow edge={edge} onRemove={() => removeCustomEdge(edge.id, edge.name)} />
+                <CustomEdgeRow edge={edge} disabled={state.character.creationLocked} onRemove={() => removeCustomEdge(edge.id, edge.name)} />
               )}
             </For>
             <For each={selectedEdges()}>
@@ -303,6 +303,7 @@ export function EdgesTab(): JSX.Element {
                       value={sel.count ?? 1}
                       onChange={(value) => actions.setEdgeCount(edge.id, value)}
                       min={1}
+                      disabled={state.character.creationLocked}
                     />
                   </Show>
                   <Button
@@ -310,6 +311,7 @@ export function EdgesTab(): JSX.Element {
                     variant="ghost"
                     square
                     aria-label="Удалить"
+                    disabled={state.character.creationLocked}
                     onClick={() => removeEdge(edge.id, edge.ru)}
                   >
                     <Trash2 size={14} />
@@ -343,15 +345,17 @@ export function EdgesTab(): JSX.Element {
                       <RequirementBadges requirements={e.requirements} character={c()} />
                       <EdgeSummary edge={e} />
                     </button>
-                    <Button
-                      size="xs"
-                      variant="ghost"
-                      square
-                      aria-label="Добавить"
-                      onClick={() => actions.addEdge({ edgeId: e.id })}
-                    >
-                      <Plus size={14} />
-                    </Button>
+                    <Show when={!state.character.creationLocked}>
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        square
+                        aria-label="Добавить"
+                        onClick={() => actions.addEdge({ edgeId: e.id })}
+                      >
+                        <Plus size={14} />
+                      </Button>
+                    </Show>
                   </li>
                 )}
               </For>
@@ -360,16 +364,18 @@ export function EdgesTab(): JSX.Element {
         )}
       </For>
 
-      <Button
-        size="md"
-        variant="primary"
-        square
-        class="fixed bottom-20 right-4 z-30 h-14 w-14 rounded-full shadow-lg sm:bottom-6"
-        aria-label="Добавить свою черту"
-        onClick={() => setCustomDrawerOpen(true)}
-      >
-        <Plus size={24} />
-      </Button>
+      <Show when={!state.character.creationLocked}>
+        <Button
+          size="md"
+          variant="primary"
+          square
+          class="fixed bottom-20 right-4 z-30 h-14 w-14 rounded-full shadow-lg sm:bottom-6"
+          aria-label="Добавить свою черту"
+          onClick={() => setCustomDrawerOpen(true)}
+        >
+          <Plus size={24} />
+        </Button>
+      </Show>
 
       <Drawer
         open={drawerEdge() != null}
@@ -388,6 +394,7 @@ export function EdgesTab(): JSX.Element {
                 fallback={
                   <Button
                     variant="error"
+                    disabled={state.character.creationLocked}
                     onClick={() => {
                       if (removeEdge(e().id, e().ru)) setDrawerEdge(null);
                     }}
@@ -398,6 +405,7 @@ export function EdgesTab(): JSX.Element {
               >
                 <Button
                   variant="primary"
+                  disabled={state.character.creationLocked}
                   onClick={() => {
                     actions.addEdge({ edgeId: e().id });
                     setDrawerEdge(null);
@@ -441,7 +449,7 @@ export function EdgesTab(): JSX.Element {
           </label>
           <Button
             variant="primary"
-            disabled={customEdgeName().trim() === ''}
+            disabled={state.character.creationLocked || customEdgeName().trim() === ''}
             onClick={addCustomEdge}
           >
             Добавить
@@ -452,7 +460,7 @@ export function EdgesTab(): JSX.Element {
   );
 }
 
-function CustomEdgeRow(props: { edge: CustomEdge; onRemove: () => void }): JSX.Element {
+function CustomEdgeRow(props: { edge: CustomEdge; onRemove: () => void; disabled?: boolean }): JSX.Element {
   return (
     <li class="flex items-start justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
       <div class="flex flex-1 flex-col items-start gap-0.5 text-left">
@@ -472,6 +480,7 @@ function CustomEdgeRow(props: { edge: CustomEdge; onRemove: () => void }): JSX.E
         square
         aria-label="Удалить"
         onClick={props.onRemove}
+        disabled={props.disabled}
       >
         <Trash2 size={14} />
       </Button>
