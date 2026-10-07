@@ -86,10 +86,10 @@ freePoints =
     minorHindrances × 1 + majorHindrances × 2
   − max(0, skillPointsSpent − skillCap) × 1
   − max(0, attrPointsSpent − 5)         × 2
-  − max(0, countedEdges − edgeLimit)             × 2
+  − max(0, countedEdges − baseEdgeLimit) × 2
 ```
 
-`skillCap = 12 + freeSkillPoints + (5 if Старость is taken)`. `edgeLimit = 2 + active valid edge-slot promotions`. Ordinary edge copies and custom edges with `countsTowardLimit` enabled each count; Мистический дар and freely granted custom edges are exempt. Excess counted edges cost 2 creation points each. Overspending and hindrance totals above four warn but do not block locking.
+`skillCap = 12 + freeSkillPoints + (5 if Старость is taken)`. `baseEdgeLimit = 2 + active valid edge-slot promotions`. The displayed `edgeLimit` adds `floor(max(0, hindrancePoints − skillOverspending − attributeOverspending × 2) / 2)` slots. These are affordable slots, not reserved points: raising creation attributes or skills can reduce the edge limit. Ordinary edge copies and custom edges with `countsTowardLimit` enabled each count; Мистический дар and freely granted custom edges are exempt. Each counted edge above `baseEdgeLimit` still consumes 2 hindrance points, so the shared pool is never counted twice. Overspending and hindrance totals above four warn but do not block locking.
 
 ### Ordered promotions
 
@@ -101,7 +101,7 @@ Each completed field has exactly 2 points. Empty fields and unfinished choices r
 
 An existing-skill allocation never learns an untrained/deleted skill implicitly. An impossible or incompletely spent allocation makes the entire field red and ineffective; it remains saved and editable. Replay continues with later fields after skipping invalid ones. Edge prerequisites and attribute frequency limits warn but do not suppress otherwise valid fields. Empty fields apply nothing. Clicking a promotion card opens only that field; the distribution button opens the full list. Modal edits are a draft: apply saves changes; cancel discards the draft. Editing one field still replays the full sequence and preserves other fields.
 
-Each empty active field has an auto-backfill button for existing characters. It first covers excess counted edges with an edge-slot credit; otherwise it transfers an attribute step if creation attributes exceed 5 points; otherwise it transfers one step from each of two eligible skills above d4; finally it transfers two points from one skill, prioritizing skills above their linked attribute. Attribute and skill transfers lower the creation baseline rather than increasing current dice. A candidate must replay legally, preserve all current dice, and leave every other promotion's status and allocation unchanged. Filled and inactive fields cannot be auto-backfilled. If no safe candidate exists, nothing changes and the field explains why. Applying any auto-backfilled draft requires a separate confirmation showing baseline changes and the affected promotions; cancelling discards the proposal.
+Each empty active field has an auto-backfill button for existing characters. It first covers counted edges above the affordable displayed limit with an edge-slot credit; edges funded by remaining hindrance points do not trigger this step. Otherwise it transfers an attribute step if creation attributes exceed 5 points; otherwise it transfers one step from each of two eligible skills above d4; finally it transfers two points from one skill, prioritizing skills above their linked attribute. Attribute and skill transfers lower the creation baseline rather than increasing current dice. A candidate must replay legally, preserve all current dice, and leave every other promotion's status and allocation unchanged. Filled and inactive fields cannot be auto-backfilled. If no safe candidate exists, nothing changes and the field explains why. Applying any auto-backfilled draft requires a separate confirmation showing baseline changes and the affected promotions; cancelling discards the proposal.
 
 **Homebrew:** `doubleEveryFourthPromotion` defaults OFF. When ON, an additional 2-point field appears immediately after earned total promotions 4, 8, 12, etc. These fields do not increase the count or rank. Turning the rule OFF preserves filled bonus fields inactive; turning it back ON restores them. Inactive fields can be revealed in the modal.
 
@@ -113,7 +113,7 @@ The book's hindrance-removal promotion option remains out of scope. Powers may b
 
 ## Tab 5: Черты (Edges)
 
-**Counter:** `counted / edgeLimit` — the limit includes active edge promotion credits; over-cap pulls 2 pts each from the unified pool. The counter remains visible while locked.
+**Counter:** `counted / edgeLimit` — the limit includes active edge promotion credits and slots affordable with remaining hindrance points. Creation attribute and skill spending reduces that shared allowance. Edges above the displayed limit warn; existing selections remain. The counter remains visible while locked.
 
 Two sections:
 - **Доступные** — searchable, grouped by category (Предыстории, Боевые, Лидерские, Сверхъестественные, Профессиональные, Социальные, Мистические, Легендарные, + DL categories). Tap → drawer w/ full description + requirements. "Add" button.

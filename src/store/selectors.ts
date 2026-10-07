@@ -1,5 +1,6 @@
 import type { Character, CustomSkill, DieStep, DieStepOrNone, Hindrance, Rank } from '../types';
 import { DIE_STEPS, RANK_THRESHOLDS } from '../types';
+import { BASE_SKILL_IDS, HINDRANCE_BY_ID, SKILL_BY_ID } from '../data';
 
 export function dieIndex(die: DieStepOrNone): number {
   if (die == null) return -1;
@@ -117,53 +118,49 @@ export function edgeCount(c: Character): number {
     c.customEdges.filter((edge) => edge.countsTowardLimit === true).length);
 }
 
-/**
- * Unified free-points pool.
- * Creation-only pool. Promotions are spent separately through ordered allocations.
- * earned = minor × 1 + major × 2
- * spent  = max(0, skillSpent − skillCap) × 1
- *        + max(0, attrSpent − 5)         × 2
- *        + max(0, edges     − edgeCap)   × 2
- */
-function computeFreePoints(args: {
-  c: Character;
-  hindrancePoints: { minor: number; major: number };
-  skillSpent: number;
-  attrSpent: number;
-  freeSkillPoints?: number;
-  edgeLimit?: number;
-}): number {
-  const { c, hindrancePoints, skillSpent, attrSpent, freeSkillPoints = 0, edgeLimit = edgeCap() } = args;
-  const earned = hindrancePoints.minor + hindrancePoints.major;
-  const skillOver = Math.max(0, skillSpent - skillCap(c, freeSkillPoints));
-  const attrOver = Math.max(0, attrSpent - attrCap());
-  const edgesOver = Math.max(0, edgeCount(c) - edgeLimit);
-  return earned - skillOver - attrOver * 2 - edgesOver * 2;
-}
-
 export function characterPointTotals(args: {
   c: Character;
   baseSkillIds: string[];
   linkedAttrFor: (skillId: string) => keyof Character['attributes'] | undefined;
   hindranceMap: Map<string, Hindrance>;
   freeSkillPoints?: number;
-  edgeLimit?: number;
+  promotionEdgeSlots?: number;
 }): {
   skillSpent: number;
   attrSpent: number;
   currentSkillCap: number;
   hindrancePoints: { minor: number; major: number; total: number };
+  edgeLimit: number;
   free: number;
 } {
-  const { c, baseSkillIds, linkedAttrFor, hindranceMap, freeSkillPoints = 0 } = args;
+  const { c, baseSkillIds, linkedAttrFor, hindranceMap, freeSkillPoints = 0, promotionEdgeSlots = 0 } = args;
   const skillSpent = skillPointsSpent(c, baseSkillIds, linkedAttrFor);
   const attrSpent = attrPointsSpent(c);
   const hindrancePoints = hindrancePointsEarned(c, hindranceMap);
+  const currentSkillCap = skillCap(c, freeSkillPoints);
+  const skillOver = Math.max(0, skillSpent - currentSkillCap);
+  const attrOver = Math.max(0, attrSpent - attrCap());
+  const pointsForEdges = hindrancePoints.total - skillOver - attrOver * 2;
+  const baseEdgeLimit = edgeCap(promotionEdgeSlots);
   return {
     skillSpent,
     attrSpent,
-    currentSkillCap: skillCap(c, freeSkillPoints),
+    currentSkillCap,
     hindrancePoints,
-    free: computeFreePoints({ c, hindrancePoints, skillSpent, attrSpent, freeSkillPoints, edgeLimit: args.edgeLimit }),
+    edgeLimit: baseEdgeLimit + Math.floor(Math.max(0, pointsForEdges) / 2),
+    // Affordable extra slots still consume hindrance points; only promotion slots are free.
+    free: pointsForEdges - Math.max(0, edgeCount(c) - baseEdgeLimit) * 2,
   };
+}
+
+export function characterPointTotalsFor(c: Character, freeSkillPoints = 0, promotionEdgeSlots = 0) {
+  return characterPointTotals({
+    c,
+    baseSkillIds: BASE_SKILL_IDS,
+    linkedAttrFor: (id) => SKILL_BY_ID.get(id)?.linkedAttribute
+      ?? c.customSkills.find((skill) => skill.id === id)?.linkedAttribute,
+    hindranceMap: HINDRANCE_BY_ID,
+    freeSkillPoints,
+    promotionEdgeSlots,
+  });
 }

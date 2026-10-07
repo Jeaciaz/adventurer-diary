@@ -30,7 +30,7 @@ import {
 import { defaultCharacter } from '../storage/defaults';
 import { ARCANE_BACKGROUND_BY_ID } from '../data';
 import { promotionCount, replayPromotions, veteranPromotions } from './promotions';
-import { edgeCap } from './selectors';
+import { createCharacterPointTotalsMemo } from './pointTotals';
 
 interface StoreShape {
   character: Character;
@@ -271,7 +271,10 @@ export function StoreProvider(props: ParentProps): JSX.Element {
 
   const promotionResults = createMemo(() => replayPromotions(state.character, state.settings));
   const currentCharacter = () => promotionResults().character;
-  const edgeLimit = () => edgeCap(promotionResults().edgeSlots);
+  const creationTotals = createCharacterPointTotalsMemo(
+    () => state.character, () => state.settings.freeSkillPoints, () => promotionResults().edgeSlots,
+  );
+  const edgeLimit = () => creationTotals().edgeLimit;
   const sheetCharacter = () => state.character.creationLocked
     ? currentCharacter()
     : { ...state.character, advancesUsed: veteranPromotions(state.character) };

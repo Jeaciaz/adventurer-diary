@@ -44,7 +44,7 @@ export function StatusTab(): JSX.Element {
     setPromotionsOpen(true);
   };
 
-  const totals = createCharacterPointTotalsMemo(() => state.character, () => state.settings.freeSkillPoints ?? 0, edgeLimit);
+  const totals = createCharacterPointTotalsMemo(() => state.character, () => state.settings.freeSkillPoints ?? 0, () => promotionResults().edgeSlots);
   const rank = createMemo(() => rankFromAdvances(c().advancesUsed));
   const edgeWarnings = createMemo(() => edgeRequirementWarnings(c()));
   const activeRows = createMemo(() => promotionResults().rows.filter((row) => row.active));
@@ -126,7 +126,7 @@ export function StatusTab(): JSX.Element {
           <Counter label="Параметры" value={totals().attrSpent} cap={5} />
           <Counter label="Навыки" value={totals().skillSpent} cap={totals().currentSkillCap} />
           <Counter label="Изъяны" value={totals().hindrancePoints.total} cap={4} warn={totals().hindrancePoints.total > 4} />
-          <Counter label="Черты" value={edgeCount(state.character)} cap={edgeLimit()} />
+          <Counter label="Черты" value={edgeCount(state.character)} cap={edgeLimit()} warn={edgeCount(state.character) > edgeLimit()} />
         </div>
         <p class="mt-3 text-xs leading-relaxed opacity-70">
           Очки изъянов покрывают перерасход параметров (×2), черт (×2) и навыков (×1). Повышения расходуются отдельно.

@@ -2,7 +2,7 @@ import { ATTRIBUTES, SKILL_BY_ID } from '../data';
 import type { AppSettings, Character, PromotionAllocation } from '../types';
 import { DIE_STEPS } from '../types';
 import { replayPromotions } from './promotions';
-import { dieIndex, edgeCap, edgeCount } from './selectors';
+import { characterPointTotalsFor, dieIndex, edgeCount } from './selectors';
 
 function sameDice(a: Character, b: Character): boolean {
   if (ATTRIBUTES.some(({ id }) => a.attributes[id] !== b.attributes[id])) return false;
@@ -28,7 +28,8 @@ export function autoBackfillPromotion(baseline: Character, settings: AppSettings
     return sameDice(original.character, result.character) ? candidate : null;
   };
 
-  if (edgeCount(baseline) > edgeCap(original.edgeSlots)) {
+  const totals = characterPointTotalsFor(baseline, settings.freeSkillPoints, original.edgeSlots);
+  if (edgeCount(baseline) > totals.edgeLimit) {
     return attempt([{ kind: 'edgeSlot', points: 2 }], () => {});
   }
 

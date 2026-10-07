@@ -257,6 +257,40 @@ test('version 2 custom-power saves migrate promotions without losing powers or p
   assert.deepEqual(replayPromotions(imported.character, imported.settings).character.customPowers, c.customPowers);
 });
 
+test('custom powers survive local-storage upgrades, filter changes and reloads', () => {
+  const power = {
+    id: 'custom-power-flame', name: 'Flame', powerPoints: '2', range: 'Self',
+    duration: '5', attackEffect: '2d6', shortDescription: 'Custom effect',
+    fullDescription: 'Homebrew power description',
+  };
+  for (const version of [2, 3, 4]) {
+    const storage = new Map();
+    global.localStorage = {
+      getItem: (key) => storage.get(key) ?? null,
+      setItem: (key, value) => storage.set(key, value),
+    };
+    const c = character();
+    c.customPowers = [power];
+    c.pinnedPowerIds = [power.id];
+    c.arcaneBackgroundId = 'huckster';
+    if (version === 2) {
+      delete c.promotions;
+      delete c.creationLocked;
+    }
+    storage.set('swade:character', JSON.stringify(c));
+    storage.set('swade:schemaVersion', String(version));
+    for (const filterEnabled of [false, true]) {
+      const loaded = loadCharacter();
+      loaded.abFilterEnabled = filterEnabled;
+      saveCharacter(loaded);
+      const reloaded = loadCharacter();
+      assert.deepEqual(reloaded.customPowers, [power], `schema ${version}, filter ${filterEnabled}`);
+      assert.deepEqual(reloaded.pinnedPowerIds, [power.id]);
+      assert.deepEqual(replayPromotions(reloaded, defaultSettings).character.customPowers, [power]);
+    }
+  }
+});
+
 test('version 1 saves run pinned-power cleanup and promotion migration together', () => {
   const c = character();
   delete c.promotions;
@@ -391,7 +425,7 @@ test('edge slot credits affect the point pool and withdrawing credit retains pic
   c.edges = [{ edgeId: 'novye-sily', count: 3 }];
   const totals = () => characterPointTotals({ c, baseSkillIds: BASE_SKILL_IDS,
     linkedAttrFor: (id) => SKILL_BY_ID.get(id)?.linkedAttribute, hindranceMap: HINDRANCE_BY_ID,
-    edgeLimit: edgeCap(replayPromotions(c, defaultSettings).edgeSlots) });
+    promotionEdgeSlots: replayPromotions(c, defaultSettings).edgeSlots });
   assert.equal(totals().free, 0);
   c.advancesUsed = 0;
   assert.equal(totals().free, -2);

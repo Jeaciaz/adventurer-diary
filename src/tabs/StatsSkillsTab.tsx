@@ -35,10 +35,10 @@ const BASE_SKILL_DIE_OPTIONS = SKILL_DIE_OPTIONS.map((opt) => ({
 }));
 
 export function StatsSkillsTab(): JSX.Element {
-  const { state, actions, sheetCharacter, edgeLimit } = useStore();
+  const { state, actions, sheetCharacter, promotionResults } = useStore();
   const c = sheetCharacter;
 
-  const totals = createCharacterPointTotalsMemo(() => state.character, () => state.settings.freeSkillPoints ?? 0, edgeLimit);
+  const totals = createCharacterPointTotalsMemo(() => state.character, () => state.settings.freeSkillPoints ?? 0, () => promotionResults().edgeSlots);
 
   return (
     <div class="flex flex-col gap-4">
