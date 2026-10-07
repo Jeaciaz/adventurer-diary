@@ -2,9 +2,9 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { join } = require('node:path');
 const compiled = (file) => require(join(process.env.SWADE_TEST_BUILD, file));
-const { replayPromotions, promotionRows, VETERAN_EDGE_ID, promotionCount } = compiled('store/promotions.js');
+const { replayPromotions, promotionRows, VETERAN_EDGE_ID, promotionCount, edgeRequirementWarnings } = compiled('store/promotions.js');
 const { defaultCharacter, defaultSettings } = compiled('storage/defaults.js');
-const { characterPointTotals } = compiled('store/selectors.js');
+const { characterPointTotals, edgeCap, edgeCount } = compiled('store/selectors.js');
 const { BASE_SKILL_IDS, HINDRANCE_BY_ID, SKILL_BY_ID } = compiled('data/index.js');
 const { exportCharacterJson, importCharacterJson, loadCharacter, saveCharacter } = compiled('storage/persist.js');
 
@@ -149,12 +149,37 @@ test('repeatable edges count copies and veteran cannot be acquired through promo
   assert.equal(replayPromotions(c, defaultSettings).rows[0].status, 'invalid');
 });
 
-test('creation pool excludes promotions and charges repeated and custom edges', () => {
+test('creation pool excludes promotions and custom edges but charges repeated ordinary edges', () => {
   const c = progressed({ 'earned-1': [attribute('strength')] }, 100);
   const totals = () => characterPointTotals({ c, baseSkillIds: BASE_SKILL_IDS, linkedAttrFor: (id) => SKILL_BY_ID.get(id)?.linkedAttribute, hindranceMap: HINDRANCE_BY_ID });
   assert.equal(totals().free, 0);
   c.customEdges.push({ id: 'custom1', name: 'one', description: '' }, { id: 'custom2', name: 'two', description: '' }, { id: 'custom3', name: 'three', description: '' });
+  assert.equal(totals().free, 0);
+  c.edges.push({ edgeId: 'novye-sily', count: 3 });
   assert.equal(totals().free, -2);
+});
+
+test('a freely granted custom edge can consume a promotion without being duplicated', () => {
+  const edge = { id: 'connection', name: 'Useful connection', description: 'An ally granted by the GM' };
+  const c = progressed({ 'earned-1': [{ kind: 'customEdge', edge, points: 2 }] });
+  c.customEdges.push(edge);
+  const result = replayPromotions(c, defaultSettings);
+  assert.equal(result.rows[0].status, 'applied');
+  assert.deepEqual(result.character.customEdges, [edge]);
+  assert.deepEqual(c.customEdges, [edge]);
+  c.advancesUsed = 0;
+  assert.deepEqual(replayPromotions(c, defaultSettings).character.customEdges, [edge]);
+});
+
+test('custom edges can still be acquired through promotions and cannot consume two promotions', () => {
+  const edge = { id: 'connection', name: 'Useful connection', description: '' };
+  const allocation = { kind: 'customEdge', edge, points: 2 };
+  const c = progressed({ 'earned-1': [allocation], 'earned-2': [allocation] }, 2);
+  const result = replayPromotions(c, defaultSettings);
+  assert.equal(result.rows[0].status, 'applied');
+  assert.equal(result.rows[1].status, 'invalid');
+  assert.deepEqual(result.character.customEdges, [edge]);
+  assert.deepEqual(c.customEdges, []);
 });
 
 test('export/import preserves baseline, lock, inactive allocations and settings', () => {
@@ -200,7 +225,7 @@ test('local storage migrates old characters once and persists allocations', () =
   storage.set('swade:character', JSON.stringify(c));
   storage.set('swade:schemaVersion', '1');
   const loaded = loadCharacter();
-  assert.equal(storage.get('swade:schemaVersion'), '3');
+  assert.equal(storage.get('swade:schemaVersion'), '4');
   loaded.promotions.allocations['earned-1'] = [attribute('strength')];
   saveCharacter(loaded);
   assert.deepEqual(loadCharacter(), loaded);
@@ -318,4 +343,99 @@ test('an unfinished split allocation applies neither part until both skills are 
   const invalid = replayPromotions(c, defaultSettings);
   assert.equal(invalid.rows[0].status, 'invalid');
   assert.equal(invalid.character.skills.atletika, 'd4');
+});
+
+test('edge promotions grant slots without selecting or changing any edge', () => {
+  const c = progressed({ 'earned-1': [{ kind: 'edgeSlot', points: 2 }] });
+  const result = replayPromotions(c, defaultSettings);
+  assert.equal(result.rows[0].status, 'applied');
+  assert.equal(result.edgeSlots, 1);
+  assert.equal(edgeCap(result.edgeSlots), 3);
+  assert.deepEqual(result.character.edges, []);
+  assert.deepEqual(result.character.customEdges, []);
+});
+
+test('managed edge requirements use current rank and tracked power-point edges retain frequency warnings', () => {
+  const c = progressed({
+    'earned-1': [{ kind: 'edgeSlot', points: 2, edgeId: 'punkty-sily' }],
+    'earned-2': [{ kind: 'edgeSlot', points: 2, edgeId: 'punkty-sily' }],
+  }, 4);
+  c.edges = [{ edgeId: 'slava' }, { edgeId: 'slava-plus' }, { edgeId: 'misticheskii-dar' }, { edgeId: 'punkty-sily', count: 2 }];
+  assert.match(edgeRequirementWarnings({ ...c, advancesUsed: 0 })[0], /ранга/);
+  const result = replayPromotions(c, defaultSettings);
+  assert.deepEqual(edgeRequirementWarnings(result.character), []);
+  assert.ok(result.rows[1].warnings.some((warning) => /уже выбраны на этом ранге/.test(warning)));
+  assert.equal(result.rows[1].status, 'applied');
+});
+
+test('optional promotion references follow picked edges and missing references only warn', () => {
+  const edge = { id: 'connection', name: 'Connection', description: '', countsTowardLimit: true };
+  const c = progressed({ 'earned-1': [{ kind: 'edgeSlot', points: 2, customEdgeId: edge.id }] });
+  c.customEdges = [edge];
+  let result = replayPromotions(c, defaultSettings);
+  assert.match(result.rows[0].changes[0], /Connection/);
+  assert.deepEqual(result.character.customEdges, [edge]);
+  c.customEdges[0].name = 'Edited connection';
+  result = replayPromotions(c, defaultSettings);
+  assert.match(result.rows[0].changes[0], /Edited connection/);
+  c.customEdges = [];
+  result = replayPromotions(c, defaultSettings);
+  assert.equal(result.rows[0].status, 'applied');
+  assert.equal(result.edgeSlots, 1);
+  assert.equal(result.rows[0].warnings.length, 1);
+  assert.deepEqual(result.character.customEdges, []);
+});
+
+test('edge slot credits affect the point pool and withdrawing credit retains picked edges', () => {
+  const c = progressed({ 'earned-1': [{ kind: 'edgeSlot', points: 2 }] });
+  c.edges = [{ edgeId: 'novye-sily', count: 3 }];
+  const totals = () => characterPointTotals({ c, baseSkillIds: BASE_SKILL_IDS,
+    linkedAttrFor: (id) => SKILL_BY_ID.get(id)?.linkedAttribute, hindranceMap: HINDRANCE_BY_ID,
+    edgeLimit: edgeCap(replayPromotions(c, defaultSettings).edgeSlots) });
+  assert.equal(totals().free, 0);
+  c.advancesUsed = 0;
+  assert.equal(totals().free, -2);
+  assert.equal(replayPromotions(c, defaultSettings).character.edges[0].count, 3);
+});
+
+test('free custom edges and arcane backgrounds are excluded, counted custom edges consume slots', () => {
+  const c = character();
+  c.edges = [{ edgeId: 'misticheskii-dar' }, { edgeId: 'novye-sily', count: 2 }];
+  c.customEdges = [{ id: 'connection', name: 'Connection', description: '', countsTowardLimit: false }];
+  assert.equal(edgeCount(c), 2);
+  c.customEdges[0].countsTowardLimit = true;
+  assert.equal(edgeCount(c), 3);
+  const imported = importCharacterJson(exportCharacterJson(c, defaultSettings, null));
+  assert.deepEqual(imported.character.customEdges, c.customEdges);
+  assert.equal(edgeCount(imported.character), 3);
+});
+
+test('bonus and veteran edge slots follow active promotion fields without changing rank count', () => {
+  const c = progressed({ 'earned-4': [{ kind: 'edgeSlot', points: 2 }],
+    'earned-4-bonus': [{ kind: 'edgeSlot', points: 2 }],
+    'veteran-1': [{ kind: 'edgeSlot', points: 2 }] }, 4);
+  c.edges = [{ edgeId: VETERAN_EDGE_ID }];
+  const normal = replayPromotions(c, defaultSettings);
+  const doubled = replayPromotions(c, { ...defaultSettings, doubleEveryFourthPromotion: true });
+  assert.equal(normal.edgeSlots, 2);
+  assert.equal(doubled.edgeSlots, 3);
+  assert.equal(doubled.character.advancesUsed, 8);
+  assert.equal(normal.character.advancesUsed, 8);
+});
+
+test('legacy edge awards move to the edges tab once while preserving repeated and custom edges', () => {
+  const edge = { id: 'connection', name: 'Connection', description: '' };
+  const c = progressed({
+    'earned-1': [{ kind: 'edge', edgeId: 'novye-sily', points: 2 }],
+    'earned-2': [{ kind: 'customEdge', edge, points: 2 }],
+  }, 2);
+  c.edges = [{ edgeId: 'novye-sily' }];
+  const imported = importCharacterJson(JSON.stringify({ schemaVersion: 3, character: c, settings: defaultSettings }));
+  assert.equal(imported.character.edges[0].count, 2);
+  assert.equal(imported.character.customEdges[0].countsTowardLimit, true);
+  assert.deepEqual(imported.character.promotions.allocations['earned-1'], [{ kind: 'edgeSlot', edgeId: 'novye-sily', points: 2 }]);
+  assert.deepEqual(imported.character.promotions.allocations['earned-2'], [{ kind: 'edgeSlot', customEdgeId: edge.id, points: 2 }]);
+  assert.equal(replayPromotions(imported.character, imported.settings).edgeSlots, 2);
+  const reimported = importCharacterJson(exportCharacterJson(imported.character, imported.settings, null));
+  assert.deepEqual(reimported.character, imported.character);
 });

@@ -161,6 +161,7 @@ const customEdgeSchema = v.object({
   id: v.string(),
   name: v.string(),
   description: v.string(),
+  countsTowardLimit: v.optional(v.boolean()),
 });
 
 export const isCustomEdge = guardFromSchema<CustomEdge>(customEdgeSchema);
@@ -172,6 +173,7 @@ const promotionAllocationSchema = v.variant('kind', [
     customSkill: v.optional(v.object({ id: v.string(), name: v.string(), linkedAttribute: attributeIdSchema })),
   }),
   v.object({ kind: v.literal('skill'), skillId: v.string(), points: v.picklist([1, 2]) }),
+  v.object({ kind: v.literal('edgeSlot'), points: v.literal(2), edgeId: v.optional(v.string()), customEdgeId: v.optional(v.string()) }),
   v.object({ kind: v.literal('edge'), edgeId: v.string(), points: v.literal(2), arcaneBackgroundId: v.optional(v.string()) }),
   v.object({ kind: v.literal('customEdge'), edge: customEdgeSchema, points: v.literal(2) }),
 ]);

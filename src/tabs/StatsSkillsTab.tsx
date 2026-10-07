@@ -4,6 +4,7 @@ import { useStore } from '../store/store';
 import { ATTRIBUTES, SKILLS_BY_ATTRIBUTE } from '../data';
 import { dieIndex } from '../store/selectors';
 import { createCharacterPointTotalsMemo } from '../store/pointTotals';
+import { DieIcon } from '../components/DieIcon';
 import {
   Badge,
   Button,
@@ -34,10 +35,10 @@ const BASE_SKILL_DIE_OPTIONS = SKILL_DIE_OPTIONS.map((opt) => ({
 }));
 
 export function StatsSkillsTab(): JSX.Element {
-  const { state, actions, sheetCharacter } = useStore();
+  const { state, actions, sheetCharacter, edgeLimit } = useStore();
   const c = sheetCharacter;
 
-  const totals = createCharacterPointTotalsMemo(() => state.character, () => state.settings.freeSkillPoints ?? 0);
+  const totals = createCharacterPointTotalsMemo(() => state.character, () => state.settings.freeSkillPoints ?? 0, edgeLimit);
 
   return (
     <div class="flex flex-col gap-4">
@@ -70,7 +71,8 @@ export function StatsSkillsTab(): JSX.Element {
                 value={c().attributes[attr.id]}
                 onChange={(v) => actions.setAttribute(attr.id, v)}
                 ariaLabel={attr.ru}
-                readOnlyClass="w-14 shrink-0 tabular-nums"
+                readOnlyClass="w-20 gap-1 shrink-0 tabular-nums"
+                readOnlyIcon={<DieIcon die={c().attributes[attr.id]} />}
                 disabled={state.character.creationLocked}
               />
             </div>
@@ -97,7 +99,8 @@ export function StatsSkillsTab(): JSX.Element {
                         value={die()}
                         onChange={(v) => actions.setSkill(skill.id, v)}
                         ariaLabel={skill.ru}
-                        readOnlyClass="w-14 shrink-0 tabular-nums"
+                        readOnlyClass="w-20 gap-1 shrink-0 tabular-nums"
+                        readOnlyIcon={<DieIcon die={die()} />}
                         disabled={state.character.creationLocked}
                       />
                     </div>
@@ -129,7 +132,8 @@ export function StatsSkillsTab(): JSX.Element {
                           value={die()}
                           onChange={(v) => actions.updateCustomSkill(cs.id, { die: v })}
                           ariaLabel={cs.name}
-                          readOnlyClass="w-14 shrink-0 tabular-nums"
+                          readOnlyClass="w-20 gap-1 shrink-0 tabular-nums"
+                          readOnlyIcon={<DieIcon die={die()} />}
                           disabled={state.character.creationLocked}
                         />
                         <Button

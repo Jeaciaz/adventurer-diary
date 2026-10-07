@@ -17,7 +17,6 @@ import type {
   SelectedEquipment,
   SelectedHindrance,
   SelectedPower,
-  Promotions,
 } from '../types';
 import {
   loadCharacter,
@@ -31,6 +30,7 @@ import {
 import { defaultCharacter } from '../storage/defaults';
 import { ARCANE_BACKGROUND_BY_ID } from '../data';
 import { promotionCount, replayPromotions, veteranPromotions } from './promotions';
+import { edgeCap } from './selectors';
 
 interface StoreShape {
   character: Character;
@@ -44,6 +44,7 @@ interface StoreApi {
   currentCharacter: () => Character;
   sheetCharacter: () => Character;
   promotionResults: () => ReturnType<typeof replayPromotions>;
+  edgeLimit: () => number;
 }
 
 const StoreCtx = createContext<StoreApi>();
@@ -101,7 +102,6 @@ function makeActions(set: SetStoreFunction<StoreShape>, state: StoreShape, curre
       );
     },
     addCustomHindrance(h: CustomHindrance) {
-      if (state.character.creationLocked) return;
       set('character', 'customHindrances', (xs) => [...xs, h]);
     },
     removeCustomHindrance(id: string) {
@@ -115,7 +115,6 @@ function makeActions(set: SetStoreFunction<StoreShape>, state: StoreShape, curre
       );
     },
     addEdge(e: SelectedEdge) {
-      if (state.character.creationLocked) return;
       set('character', 'edges', (xs) => {
         const existing = xs.find((x) => x.edgeId === e.edgeId);
         if (existing) {
@@ -127,11 +126,9 @@ function makeActions(set: SetStoreFunction<StoreShape>, state: StoreShape, curre
       });
     },
     removeEdge(edgeId: string) {
-      if (state.character.creationLocked) return;
       set('character', 'edges', (xs) => xs.filter((x) => x.edgeId !== edgeId));
     },
     setEdgeCount(edgeId: string, count: number) {
-      if (state.character.creationLocked) return;
       set('character', 'edges', (xs) =>
         count <= 0
           ? xs.filter((x) => x.edgeId !== edgeId)
@@ -139,12 +136,13 @@ function makeActions(set: SetStoreFunction<StoreShape>, state: StoreShape, curre
       );
     },
     addCustomEdge(edge: CustomEdge) {
-      if (state.character.creationLocked) return;
       set('character', 'customEdges', (xs) => [...xs, edge]);
     },
     removeCustomEdge(id: string) {
-      if (state.character.creationLocked) return;
       set('character', 'customEdges', (xs) => xs.filter((x) => x.id !== id));
+    },
+    updateCustomEdge(id: string, patch: Partial<Omit<CustomEdge, 'id'>>) {
+      set('character', 'customEdges', (xs) => xs.map((edge) => edge.id === id ? { ...edge, ...patch } : edge));
     },
     addCustomEquipment(item: CustomEquipment) {
       set('character', 'customEquipment', (xs) => [...xs, item]);
@@ -176,7 +174,6 @@ function makeActions(set: SetStoreFunction<StoreShape>, state: StoreShape, curre
       set('character', 'money', money);
     },
     setArcaneBackground(id: string | null) {
-      if (state.character.creationLocked) return;
       set('character', 'arcaneBackgroundId', id);
     },
     setPowerPoints(pp: number) {
@@ -229,8 +226,13 @@ function makeActions(set: SetStoreFunction<StoreShape>, state: StoreShape, curre
     setCreationLocked(locked: boolean) {
       set('character', 'creationLocked', locked);
     },
-    setPromotionAllocations(allocations: Promotions['allocations']) {
-      set('character', 'promotions', 'allocations', () => allocations);
+    applyPromotionDraft(draft: Pick<Character, 'attributes' | 'skills' | 'customSkills' | 'promotions'>) {
+      set('character', {
+        attributes: draft.attributes,
+        skills: draft.skills,
+        customSkills: draft.customSkills,
+        promotions: draft.promotions,
+      });
     },
     dismissLegacyWarning() {
       set('character', 'promotions', 'legacyBaseline', false);
@@ -269,6 +271,7 @@ export function StoreProvider(props: ParentProps): JSX.Element {
 
   const promotionResults = createMemo(() => replayPromotions(state.character, state.settings));
   const currentCharacter = () => promotionResults().character;
+  const edgeLimit = () => edgeCap(promotionResults().edgeSlots);
   const sheetCharacter = () => state.character.creationLocked
     ? currentCharacter()
     : { ...state.character, advancesUsed: veteranPromotions(state.character) };
@@ -278,7 +281,7 @@ export function StoreProvider(props: ParentProps): JSX.Element {
   createEffect(() => saveSettings(state.settings));
 
   return (
-    <StoreCtx.Provider value={{ state, actions, currentCharacter, sheetCharacter, promotionResults }}>
+    <StoreCtx.Provider value={{ state, actions, currentCharacter, sheetCharacter, promotionResults, edgeLimit }}>
       {props.children}
     </StoreCtx.Provider>
   );

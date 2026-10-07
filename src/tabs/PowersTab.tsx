@@ -359,7 +359,6 @@ export function PowersTab(): JSX.Element {
             value={arcaneBackgroundValue(character())}
             onChange={(value) => actions.setArcaneBackground(arcaneBackgroundFromSelect(value))}
             placeholder="— нет —"
-            disabled={state.character.creationLocked}
           />
           <NumberStepper
             label="Пункты силы"

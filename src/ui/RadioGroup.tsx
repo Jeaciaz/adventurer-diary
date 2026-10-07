@@ -16,6 +16,7 @@ export interface RadioGroupProps<T extends string | number | null> {
   ariaLabel?: string;
   disabled?: boolean;
   readOnlyClass?: string;
+  readOnlyIcon?: JSX.Element;
 }
 
 const sizeClass = { xs: 'btn-xs', sm: 'btn-sm', md: '' };
@@ -44,6 +45,7 @@ export function RadioGroup<T extends string | number | null>(
   return (
     <Show when={!props.disabled} fallback={
       <span class={cx(['badge badge-lg badge-primary font-semibold', props.readOnlyClass])} aria-label={props.ariaLabel}>
+        {props.readOnlyIcon}
         {props.options.find((option) => cmp(option.value, props.value))?.label}
       </span>
     }>

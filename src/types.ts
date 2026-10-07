@@ -72,6 +72,7 @@ export interface CustomEdge {
   id: string;
   name: string;
   description: string;
+  countsTowardLimit?: boolean;
 }
 
 export interface Power {
@@ -214,6 +215,8 @@ export type PromotionAllocation =
   | { kind: 'attribute'; attributeId: AttributeId; points: 2 }
   | { kind: 'learnSkill'; skillId: string; points: 2; customSkill?: Omit<CustomSkill, 'die'> }
   | { kind: 'skill'; skillId: string; points: 1 | 2 }
+  | { kind: 'edgeSlot'; points: 2; edgeId?: string; customEdgeId?: string }
+  // Legacy allocations are read only to migrate saved characters.
   | { kind: 'edge'; edgeId: string; points: 2; arcaneBackgroundId?: string }
   | { kind: 'customEdge'; edge: CustomEdge; points: 2 };
 
@@ -223,7 +226,7 @@ export interface Promotions {
 }
 
 export interface Character {
-  // Attributes, skills and edges are the editable creation baseline.
+  // Attributes and skills are the creation baseline; edges are managed independently.
   creationLocked: boolean;
   promotions: Promotions;
   name: string;
@@ -255,7 +258,7 @@ export interface AppSettings {
   doubleEveryFourthPromotion: boolean;
 }
 
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 export const RANK_THRESHOLDS: { rank: Rank; minAdvances: number; ru: string }[] = [
   { rank: 'novice', minAdvances: 0, ru: 'Новичок' },

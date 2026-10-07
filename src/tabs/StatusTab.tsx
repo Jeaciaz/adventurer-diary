@@ -2,12 +2,11 @@ import { createMemo, createSignal, For, Show, type JSX } from 'solid-js';
 import { Diamond } from 'lucide-solid';
 import { useStore } from '../store/store';
 import {
-  edgeCap,
   edgeCount,
   rankFromAdvances,
 } from '../store/selectors';
 import { createCharacterPointTotalsMemo } from '../store/pointTotals';
-import { creationRequirementWarnings, MAX_PROMOTIONS, veteranPromotions, type PromotionResult } from '../store/promotions';
+import { edgeRequirementWarnings, MAX_PROMOTIONS, veteranPromotions, type PromotionResult } from '../store/promotions';
 import { PromotionsModal, promotionLabel } from '../components/PromotionsModal';
 import { CreationLockIcon } from '../components/CreationLockIcon';
 import { Badge, Button, Card, Counter, NumberStepper, RadioGroup, Toggle } from '../ui';
@@ -36,13 +35,18 @@ function promotionStatusLabel(status: PromotionResult['status']): string {
 }
 
 export function StatusTab(): JSX.Element {
-  const { state, actions, currentCharacter, promotionResults } = useStore();
+  const { state, actions, currentCharacter, promotionResults, edgeLimit } = useStore();
   const c = currentCharacter;
   const [promotionsOpen, setPromotionsOpen] = createSignal(false);
+  const [selectedPromotionKey, setSelectedPromotionKey] = createSignal<string>();
+  const openPromotions = (key?: string) => {
+    setSelectedPromotionKey(key);
+    setPromotionsOpen(true);
+  };
 
-  const totals = createCharacterPointTotalsMemo(() => state.character, () => state.settings.freeSkillPoints ?? 0);
+  const totals = createCharacterPointTotalsMemo(() => state.character, () => state.settings.freeSkillPoints ?? 0, edgeLimit);
   const rank = createMemo(() => rankFromAdvances(c().advancesUsed));
-  const creationWarnings = createMemo(() => creationRequirementWarnings(state.character));
+  const edgeWarnings = createMemo(() => edgeRequirementWarnings(c()));
   const activeRows = createMemo(() => promotionResults().rows.filter((row) => row.active));
 
   return (
@@ -57,18 +61,18 @@ export function StatusTab(): JSX.Element {
             ? 'Исходные параметры заблокированы. Развитие персонажа — через повышения. Снимите блокировку для исправления значений при создании.'
             : 'Редактируются значения при создании. Повышения сохраняются отдельно и пересчитываются после исправлений.'}
         </p>
-        <Show when={totals().free < 0 || totals().hindrancePoints.total > 4 || creationWarnings().length > 0}>
+        <Show when={totals().free < 0 || totals().hindrancePoints.total > 4 || edgeWarnings().length > 0}>
           <div class="mt-2 text-xs text-warning" role="status">
             <Show when={totals().free < 0}>Превышен бюджет создания персонажа. </Show>
             <Show when={totals().hindrancePoints.total > 4}>Изъяны дают больше 4 очков. </Show>
-            <Show when={creationWarnings().length > 0}>Проверьте требования выбранных черт. </Show>
+            <Show when={edgeWarnings().length > 0}>Проверьте требования выбранных черт. </Show>
             Блокировка всё равно доступна.
           </div>
         </Show>
       </Card>
       <Show when={state.character.promotions.legacyBaseline}>
         <Card>
-          <p class="text-xs leading-relaxed text-warning">Старый персонаж: текущие значения сохранены как исходные, повышения пока пустые. Заполнение прошлых повышений добавит их эффекты к этим значениям. Чтобы восстановить развитие, сначала исправьте значения при создании.</p>
+          <p class="text-xs leading-relaxed text-warning">Старый персонаж: текущие значения сохранены как исходные. Автозаполнение переносит существующие значения в повышения. Ручное заполнение добавляет эффекты к исходным значениям — сначала исправьте их при создании.</p>
           <Button size="xs" variant="ghost" class="mt-2" onClick={actions.dismissLegacyWarning}>Понятно</Button>
         </Card>
       </Show>
@@ -110,7 +114,7 @@ export function StatusTab(): JSX.Element {
           <p class="mt-2 text-xs opacity-70">+4 при создании: «Ветеран Дикого Запада». Всего: {c().advancesUsed}. Эти четыре повышения не получают бонус.</p>
         </Show>
         <div class="mt-3 flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="primary" onClick={() => setPromotionsOpen(true)}>Распределить повышения</Button>
+          <Button size="sm" variant="primary" onClick={() => openPromotions()}>Распределить повышения</Button>
         </div>
         <p class="mt-2 text-xs opacity-60">При уменьшении числа повышений их выбор сохраняется неактивным.</p>
       </Card>
@@ -122,7 +126,7 @@ export function StatusTab(): JSX.Element {
           <Counter label="Параметры" value={totals().attrSpent} cap={5} />
           <Counter label="Навыки" value={totals().skillSpent} cap={totals().currentSkillCap} />
           <Counter label="Изъяны" value={totals().hindrancePoints.total} cap={4} warn={totals().hindrancePoints.total > 4} />
-          <Counter label="Черты" value={edgeCount(state.character)} cap={edgeCap()} />
+          <Counter label="Черты" value={edgeCount(state.character)} cap={edgeLimit()} />
         </div>
         <p class="mt-3 text-xs leading-relaxed opacity-70">
           Очки изъянов покрывают перерасход параметров (×2), черт (×2) и навыков (×1). Повышения расходуются отдельно.
@@ -135,7 +139,7 @@ export function StatusTab(): JSX.Element {
             <For each={activeRows()}>{(row) => (
               <button type="button" class="rounded-lg border p-2 text-left text-xs"
                 classList={{ 'border-error text-error': row.status === 'invalid', 'border-base-300': row.status !== 'invalid' }}
-                onClick={() => setPromotionsOpen(true)}>
+                onClick={() => openPromotions(row.key)}>
                 <div class="flex flex-wrap items-center justify-between gap-2">
                   <span class="font-semibold">{promotionLabel(row)}</span>
                   <Badge variant={row.status === 'invalid' ? 'error' : 'ghost'}>{promotionStatusLabel(row.status)}</Badge>
@@ -148,7 +152,7 @@ export function StatusTab(): JSX.Element {
           </div>
         </Card>
       </Show>
-      <PromotionsModal open={promotionsOpen()} onClose={() => setPromotionsOpen(false)} />
+      <PromotionsModal open={promotionsOpen()} promotionKey={selectedPromotionKey()} onClose={() => setPromotionsOpen(false)} />
     </div>
   );
 }

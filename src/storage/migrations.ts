@@ -1,5 +1,5 @@
-import { CURRENT_SCHEMA_VERSION } from '../types';
-import { promotionCount, VETERAN_EDGE_ID } from '../store/promotions';
+import { CURRENT_SCHEMA_VERSION, type AppSettings, type Character, type PromotionAllocation } from '../types';
+import { promotionCount, replayPromotions, VETERAN_EDGE_ID } from '../store/promotions';
 import { arrayItems, isObjectRecord, isString, objectProp } from '../validation';
 
 type Migration = (data: unknown) => unknown;
@@ -39,6 +39,30 @@ export function migratePromotionBaseline(data: unknown): unknown {
     creationLocked: false,
     advancesUsed: Math.max(0, count - (veteran ? 4 : 0)),
     promotions: { allocations: {}, legacyBaseline: count > 0 || veteran },
+  };
+}
+
+// Preserve previously applied edge awards, then turn allocations into slot credits.
+// This also handles exports without a schema version and runs only once per save.
+export function migrateEdgeSlots(character: Character, settings: AppSettings): Character {
+  const saved = Object.values(character.promotions.allocations).flat();
+  if (!saved.some((allocation) => allocation.kind === 'edge' || allocation.kind === 'customEdge')) return character;
+  const current = replayPromotions(character, settings).character;
+  const allocations: Record<string, PromotionAllocation[]> = {};
+  for (const [key, row] of Object.entries(character.promotions.allocations)) {
+    allocations[key] = row.map((allocation): PromotionAllocation => {
+      if (allocation.kind === 'edge') return { kind: 'edgeSlot', points: 2, edgeId: allocation.edgeId || undefined };
+      if (allocation.kind === 'customEdge') return { kind: 'edgeSlot', points: 2, customEdgeId: allocation.edge.id };
+      return allocation;
+    });
+  }
+  return {
+    ...character,
+    edges: current.edges,
+    customEdges: current.customEdges.map((edge) => character.customEdges.some((selected) => selected.id === edge.id)
+      ? edge : { ...edge, countsTowardLimit: true }),
+    arcaneBackgroundId: current.arcaneBackgroundId,
+    promotions: { ...character.promotions, allocations },
   };
 }
 

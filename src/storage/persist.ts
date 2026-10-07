@@ -22,7 +22,7 @@ import {
 } from '../validation';
 import { defaultCharacter, defaultSettings } from './defaults';
 import { STORAGE_KEYS } from './keys';
-import { migratePromotionBaseline, runMigrations } from './migrations';
+import { migrateEdgeSlots, migratePromotionBaseline, runMigrations } from './migrations';
 import { MAX_PROMOTIONS, promotionCount } from '../store/promotions';
 
 function readJson(key: string): unknown {
@@ -59,12 +59,12 @@ export function loadCharacter(): Character {
   const stored = readSchemaVersion();
   const raw = readJson(STORAGE_KEYS.character);
   if (stored < CURRENT_SCHEMA_VERSION) {
-    const migrated = mergeCharacter(runMigrations(raw, stored));
+    const migrated = mergeCharacter(runMigrations(raw, stored), loadSettings());
     writeSchemaVersion(CURRENT_SCHEMA_VERSION);
     writeJson(STORAGE_KEYS.character, migrated);
     return migrated;
   }
-  return mergeCharacter(raw);
+  return mergeCharacter(raw, loadSettings());
 }
 
 export function saveCharacter(c: Character): void {
@@ -117,9 +117,10 @@ export function importCharacterJson(json: string): ImportedBundle {
   const parsed: unknown = JSON.parse(json);
   const source = isObjectRecord(parsed) ? parsed : null;
   const schemaVersion = schemaVersionFrom(source);
+  const settings = mergeSettings(source == null ? undefined : objectProp(source, 'settings'));
   return {
-    character: mergeCharacter(importedCharacterSource(source, schemaVersion)),
-    settings: mergeSettings(source == null ? undefined : objectProp(source, 'settings')),
+    character: mergeCharacter(importedCharacterSource(source, schemaVersion), settings),
+    settings,
     portrait: parsePortrait(source == null ? undefined : objectProp(source, 'portrait')),
   };
 }
@@ -223,9 +224,9 @@ function parsePromotions(value: unknown): Promotions {
   return { allocations, legacyBaseline: booleanField(value, 'legacyBaseline', false) };
 }
 
-function mergeCharacter(raw: unknown): Character {
+function mergeCharacter(raw: unknown, settings: AppSettings = defaultSettings): Character {
   const value = migratePromotionBaseline(raw);
-  return {
+  const character: Character = {
     creationLocked: booleanField(value, 'creationLocked', false),
     promotions: parsePromotions(propFrom(value, 'promotions')),
     name: stringField(value, 'name', defaultCharacter.name),
@@ -250,6 +251,7 @@ function mergeCharacter(raw: unknown): Character {
     derivedStats: parseDerivedStats(propFrom(value, 'derivedStats')),
     abFilterEnabled: booleanField(value, 'abFilterEnabled', defaultCharacter.abFilterEnabled),
   };
+  return migrateEdgeSlots(character, settings);
 }
 
 function mergeSettings(value: unknown): AppSettings {

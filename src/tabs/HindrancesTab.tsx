@@ -236,18 +236,16 @@ export function HindrancesTab(): JSX.Element {
         </ul>
       </Card>
 
-      <Show when={!state.character.creationLocked}>
-        <Button
-          size="md"
-          variant="primary"
-          square
-          class="fixed bottom-20 right-4 z-30 h-14 w-14 rounded-full shadow-lg sm:bottom-6"
-          aria-label="Добавить свой изъян"
-          onClick={() => setCustomDrawerOpen(true)}
-        >
-          <Plus size={24} />
-        </Button>
-      </Show>
+      <Button
+        size="md"
+        variant="primary"
+        square
+        class="fixed bottom-20 right-4 z-30 h-14 w-14 rounded-full shadow-lg sm:bottom-6"
+        aria-label="Добавить свой изъян"
+        onClick={() => setCustomDrawerOpen(true)}
+      >
+        <Plus size={24} />
+      </Button>
 
       <Drawer
         open={customDrawerOpen()}
@@ -282,7 +280,7 @@ export function HindrancesTab(): JSX.Element {
           </div>
           <Button
             variant="primary"
-            disabled={state.character.creationLocked || customName().trim() === ''}
+            disabled={customName().trim() === ''}
             onClick={addCustomHindrance}
           >
             Добавить

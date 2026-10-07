@@ -108,12 +108,13 @@ function attrCap(): number {
   return 5;
 }
 
-export function edgeCap(): number {
-  return 2;
+export function edgeCap(promotionSlots = 0): number {
+  return 2 + promotionSlots;
 }
 
 export function edgeCount(c: Character): number {
-  return c.edges.reduce((total, edge) => total + Math.max(1, edge.count ?? 1), c.customEdges.length);
+  return c.edges.reduce((total, edge) => total + (edge.edgeId === 'misticheskii-dar' ? 0 : Math.max(1, edge.count ?? 1)),
+    c.customEdges.filter((edge) => edge.countsTowardLimit === true).length);
 }
 
 /**
@@ -130,12 +131,13 @@ function computeFreePoints(args: {
   skillSpent: number;
   attrSpent: number;
   freeSkillPoints?: number;
+  edgeLimit?: number;
 }): number {
-  const { c, hindrancePoints, skillSpent, attrSpent, freeSkillPoints = 0 } = args;
+  const { c, hindrancePoints, skillSpent, attrSpent, freeSkillPoints = 0, edgeLimit = edgeCap() } = args;
   const earned = hindrancePoints.minor + hindrancePoints.major;
   const skillOver = Math.max(0, skillSpent - skillCap(c, freeSkillPoints));
   const attrOver = Math.max(0, attrSpent - attrCap());
-  const edgesOver = Math.max(0, edgeCount(c) - edgeCap());
+  const edgesOver = Math.max(0, edgeCount(c) - edgeLimit);
   return earned - skillOver - attrOver * 2 - edgesOver * 2;
 }
 
@@ -145,6 +147,7 @@ export function characterPointTotals(args: {
   linkedAttrFor: (skillId: string) => keyof Character['attributes'] | undefined;
   hindranceMap: Map<string, Hindrance>;
   freeSkillPoints?: number;
+  edgeLimit?: number;
 }): {
   skillSpent: number;
   attrSpent: number;
@@ -161,6 +164,6 @@ export function characterPointTotals(args: {
     attrSpent,
     currentSkillCap: skillCap(c, freeSkillPoints),
     hindrancePoints,
-    free: computeFreePoints({ c, hindrancePoints, skillSpent, attrSpent, freeSkillPoints }),
+    free: computeFreePoints({ c, hindrancePoints, skillSpent, attrSpent, freeSkillPoints, edgeLimit: args.edgeLimit }),
   };
 }

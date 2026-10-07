@@ -22,7 +22,7 @@ Mobile-first PWA pocket character sheet for Savage Worlds Adventure Edition (SWA
 | `swade:portrait` | portrait base64 string (≤2MB) |
 | `swade:schemaVersion` | integer, drives migrations |
 
-Schema version 2 stores the creation baseline, lock, earned promotion count, and ordered point allocations. Version 1 saves retain their current stats as the baseline and their total promotion count, with empty allocation fields and a migration warning. Exports/imports include all progression data and settings.
+Schema version 4 stores the creation baseline, lock, earned promotion count, edge-slot credits, custom-edge budget flags, and ordered point allocations alongside custom powers. Earlier edge promotion awards move into the managed edges list once, preserving current selections and converting their allocations to slot credits. Version 1 and pre-promotion version 2 saves retain their current stats as the baseline and their total promotion count, with empty allocation fields and a migration warning. Published version 2 promotion saves retain their existing lock and allocations. Exports/imports include all progression data and settings.
 
 ## Top bar (always visible)
 
@@ -62,7 +62,7 @@ For each of 5 attributes (Ловкость, Смекалка, Характер, 
   - Custom skills deletable
   - Visualize cost-multiplier when skill > attr (e.g. badge "×2")
 
-**Creation lock:** when unlocked, stats, skills, edges, and hindrances edit creation values. When locked, they display the replayed current sheet and cannot be edited directly; current attribute and skill dice remain readable. Lock icons by the name and status toggle show the state and explain unlocking via a tooltip. Derived stats, equipment, money, wounds, fatigue, and power point resources remain editable. Creation budget counters always use the baseline, independent of promotions.
+**Creation lock:** when unlocked, attributes, skills, and hindrances edit creation values. When locked, they show current values and cannot be edited directly. Edges and arcane backgrounds remain fully managed in their tabs; custom edges can be added, edited, and removed while locked. Custom hindrance additions remain available while locked. Lock icons by the name and status toggle explain unlocking via a tooltip. Derived stats, equipment, money, wounds, fatigue, and power point resources remain editable. Attribute and skill creation budgets use the baseline; edge capacity includes active promotion credits.
 
 **Validation:** soft warn (allow over-spend, badge in red). Warnings do not prevent locking.
 
@@ -86,10 +86,10 @@ freePoints =
     minorHindrances × 1 + majorHindrances × 2
   − max(0, skillPointsSpent − skillCap) × 1
   − max(0, attrPointsSpent − 5)         × 2
-  − max(0, edgesTaken − 2)             × 2
+  − max(0, countedEdges − edgeLimit)             × 2
 ```
 
-`skillCap = 12 + freeSkillPoints + (5 if Старость is taken)`. Repeated edge copies and custom edges each count. Only creation values consume this pool; promotions never grant or consume creation points. Overspending and hindrance totals above four warn but do not block locking.
+`skillCap = 12 + freeSkillPoints + (5 if Старость is taken)`. `edgeLimit = 2 + active valid edge-slot promotions`. Ordinary edge copies and custom edges with `countsTowardLimit` enabled each count; Мистический дар and freely granted custom edges are exempt. Excess counted edges cost 2 creation points each. Overspending and hindrance totals above four warn but do not block locking.
 
 ### Ordered promotions
 
@@ -97,9 +97,11 @@ Each completed field has exactly 2 points. Empty fields and unfinished choices r
 - Raise an attribute one die step: 2 points.
 - Learn an untrained skill at d4: 2 points (the table's rule).
 - Invest 2 points in one existing skill, or 1 point in each of two skill allocations. Each die step costs 1 while below the linked attribute, otherwise 2. Costs and resulting dice are recalculated at that point in the sequence.
-- Acquire an edge or custom edge: 2 points. New custom skills can also be defined and learned in the modal. Acquiring Мистический дар includes choosing the arcane background.
+- Add one edge slot: 2 points. Optionally link an already picked ordinary or custom edge; the picker contains only taken edges. An unlinked slot is complete and effective. Edges are selected and edited in the edges tab. Removing a linked edge warns but retains the slot. New custom skills can also be defined and learned in the modal.
 
-An existing-skill allocation never learns an untrained/deleted skill implicitly. An impossible or incompletely spent allocation makes the entire field red and ineffective; it remains saved and editable. Replay continues with later fields after skipping invalid ones. Edge prerequisites and attribute frequency limits warn but do not suppress otherwise valid fields. Empty fields apply nothing. Modal edits are a draft: apply saves all fields; cancel discards the draft.
+An existing-skill allocation never learns an untrained/deleted skill implicitly. An impossible or incompletely spent allocation makes the entire field red and ineffective; it remains saved and editable. Replay continues with later fields after skipping invalid ones. Edge prerequisites and attribute frequency limits warn but do not suppress otherwise valid fields. Empty fields apply nothing. Clicking a promotion card opens only that field; the distribution button opens the full list. Modal edits are a draft: apply saves changes; cancel discards the draft. Editing one field still replays the full sequence and preserves other fields.
+
+Each empty active field has an auto-backfill button for existing characters. It first covers excess counted edges with an edge-slot credit; otherwise it transfers an attribute step if creation attributes exceed 5 points; otherwise it transfers one step from each of two eligible skills above d4; finally it transfers two points from one skill, prioritizing skills above their linked attribute. Attribute and skill transfers lower the creation baseline rather than increasing current dice. A candidate must replay legally, preserve all current dice, and leave every other promotion's status and allocation unchanged. Filled and inactive fields cannot be auto-backfilled. If no safe candidate exists, nothing changes and the field explains why. Applying any auto-backfilled draft requires a separate confirmation showing baseline changes and the affected promotions; cancelling discards the proposal.
 
 **Homebrew:** `doubleEveryFourthPromotion` defaults OFF. When ON, an additional 2-point field appears immediately after earned total promotions 4, 8, 12, etc. These fields do not increase the count or rank. Turning the rule OFF preserves filled bonus fields inactive; turning it back ON restores them. Inactive fields can be revealed in the modal.
 
@@ -111,11 +113,11 @@ The book's hindrance-removal promotion option remains out of scope. Powers may b
 
 ## Tab 5: Черты (Edges)
 
-**Counter:** `used / edgeCap` — over-cap pulls 2 pts each from unified pool.
+**Counter:** `counted / edgeLimit` — the limit includes active edge promotion credits; over-cap pulls 2 pts each from the unified pool. The counter remains visible while locked.
 
 Two sections:
 - **Доступные** — searchable, grouped by category (Предыстории, Боевые, Лидерские, Сверхъестественные, Профессиональные, Социальные, Мистические, Легендарные, + DL categories). Tap → drawer w/ full description + requirements. "Add" button.
-- **Выбранные** — list of taken edges, tap = drawer, button to remove.
+- **Выбранные** — list of taken edges, tap = drawer, button to remove. All edge controls remain available while creation is locked. Custom edges have an edit button and a toggle for whether they count toward the limit; free grants default to excluded. Name, description, and budget flag can be edited without changing the edge ID.
 
 DL edges marked with `(DL)` badge, only visible when `deadlandsEnabled`.
 

@@ -110,15 +110,21 @@ export function requirementWarning(requirement: EdgeRequirement, c: Character): 
   }
 }
 
-export function creationRequirementWarnings(c: Character): string[] {
-  const baseline = { ...c, advancesUsed: veteranPromotions(c) };
+export function edgeRequirementWarnings(c: Character): string[] {
   return c.edges.flatMap(({ edgeId }) => (EDGE_BY_ID.get(edgeId)?.requirements ?? [])
-    .map((requirement) => requirementWarning(requirement, baseline))
+    .map((requirement) => requirementWarning(requirement, c))
     .filter((warning): warning is string => warning != null));
 }
 
-function applyAllocation(c: Character, allocation: PromotionAllocation, changes: string[]): string | null {
+function applyAllocation(c: Character, allocation: PromotionAllocation, changes: string[], promotedCustomEdges: Set<string>): string | null {
   switch (allocation.kind) {
+    case 'edgeSlot': {
+      const name = allocation.customEdgeId
+        ? c.customEdges.find((edge) => edge.id === allocation.customEdgeId)?.name
+        : EDGE_BY_ID.get(allocation.edgeId ?? '')?.ru;
+      changes.push(`Лимит черт +1${name ? ` · ${name}` : ''}`);
+      return null;
+    }
     case 'attribute': {
       const before = c.attributes[allocation.attributeId];
       const after = DIE_STEPS[dieIndex(before) + 1];
@@ -173,9 +179,9 @@ function applyAllocation(c: Character, allocation: PromotionAllocation, changes:
       return null;
     }
     case 'customEdge':
-      if (c.customEdges.some((edge) => edge.id === allocation.edge.id)) return 'Своя черта уже выбрана.';
+      if (promotedCustomEdges.has(allocation.edge.id)) return 'Своя черта уже выбрана в другом повышении.';
       if (!allocation.edge.name.trim()) return 'Укажите название своей черты.';
-      c.customEdges.push({ ...allocation.edge });
+      if (!c.customEdges.some((edge) => edge.id === allocation.edge.id)) c.customEdges.push({ ...allocation.edge });
       changes.push(`Черта: ${allocation.edge.name}`);
       return null;
   }
@@ -183,6 +189,7 @@ function applyAllocation(c: Character, allocation: PromotionAllocation, changes:
 
 function allocationIncomplete(allocation: PromotionAllocation): boolean {
   switch (allocation.kind) {
+    case 'edgeSlot': return false;
     case 'attribute': return false;
     case 'skill': return !allocation.skillId;
     case 'learnSkill': return !allocation.skillId || (allocation.customSkill != null && !allocation.customSkill.name.trim());
@@ -191,7 +198,7 @@ function allocationIncomplete(allocation: PromotionAllocation): boolean {
   }
 }
 
-export function replayPromotions(baseline: Character, settings: AppSettings): { character: Character; rows: PromotionResult[] } {
+export function replayPromotions(baseline: Character, settings: AppSettings): { character: Character; rows: PromotionResult[]; edgeSlots: number } {
   let character = copyStats(baseline);
   // Core skills cannot be unlearned, including when importing older saves.
   for (const id of BASE_SKILL_IDS) character.skills[id] ??= 'd4';
@@ -199,6 +206,7 @@ export function replayPromotions(baseline: Character, settings: AppSettings): { 
   const attributeRanks = new Set<string>();
   let lastLegendaryAttribute = -Infinity;
   const powerPointRanks = new Set<string>();
+  const promotedCustomEdges = new Set<string>();
   for (const row of promotionRows(baseline, settings)) {
     const before = { ...character, advancesUsed: row.number };
     const result: PromotionResult = { ...row, before, status: 'empty', warnings: [], changes: [] };
@@ -212,17 +220,30 @@ export function replayPromotions(baseline: Character, settings: AppSettings): { 
     }
     const candidate = copyStats(before);
     for (const allocation of row.allocations) {
-      const error = applyAllocation(candidate, allocation, result.changes);
+      const error = applyAllocation(candidate, allocation, result.changes, promotedCustomEdges);
       if (error) { result.error = error; break; }
       if (allocation.kind === 'edge') {
         result.warnings.push(...(EDGE_BY_ID.get(allocation.edgeId)?.requirements ?? [])
           .map((requirement) => requirementWarning(requirement, before))
           .filter((warning): warning is string => warning != null));
       }
+      if (allocation.kind === 'edgeSlot') {
+        const selected = allocation.customEdgeId
+          ? before.customEdges.some((edge) => edge.id === allocation.customEdgeId)
+          : before.edges.some((edge) => edge.edgeId === allocation.edgeId);
+        if ((allocation.edgeId || allocation.customEdgeId) && !selected) {
+          result.warnings.push('Указанная черта удалена. Лимит черт всё равно увеличивается.');
+        } else if (allocation.edgeId) {
+          result.warnings.push(...(EDGE_BY_ID.get(allocation.edgeId)?.requirements ?? [])
+            .map((requirement) => requirementWarning(requirement, before))
+            .filter((warning): warning is string => warning != null));
+        }
+      }
     }
     if (result.error) { result.status = 'invalid'; result.changes = []; continue; }
     const rank = rankFromAdvances(row.number).rank;
     for (const allocation of row.allocations) {
+      if (allocation.kind === 'customEdge') promotedCustomEdges.add(allocation.edge.id);
       if (allocation.kind === 'attribute') {
         if (rank === 'legendary') {
           if (row.number - lastLegendaryAttribute < 2) result.warnings.push('На ранге Легенда параметр повышается не чаще, чем через одно повышение.');
@@ -232,7 +253,7 @@ export function replayPromotions(baseline: Character, settings: AppSettings): { 
           attributeRanks.add(rank);
         }
       }
-      if (allocation.kind === 'edge' && allocation.edgeId === 'punkty-sily' && rank !== 'legendary') {
+      if ((allocation.kind === 'edge' || allocation.kind === 'edgeSlot') && allocation.edgeId === 'punkty-sily' && rank !== 'legendary') {
         if (powerPointRanks.has(rank)) result.warnings.push('«Пункты силы» уже выбраны на этом ранге.');
         powerPointRanks.add(rank);
       }
@@ -241,5 +262,7 @@ export function replayPromotions(baseline: Character, settings: AppSettings): { 
     character = candidate;
   }
   character.advancesUsed = promotionCount(baseline.advancesUsed) + veteranPromotions(baseline);
-  return { character, rows };
+  const edgeSlots = rows.reduce((total, row) => total + (row.status === 'applied'
+    ? row.allocations.filter((allocation) => allocation.kind === 'edgeSlot').length : 0), 0);
+  return { character, rows, edgeSlots };
 }

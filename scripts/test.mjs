@@ -10,7 +10,7 @@ try {
     '--target', 'ES2022', '--module', 'CommonJS', '--moduleResolution', 'node',
     '--esModuleInterop', '--resolveJsonModule', '--skipLibCheck', '--strict',
     '--noUncheckedIndexedAccess', '--rootDir', 'src', '--outDir', output,
-    'src/store/promotions.ts', 'src/storage/persist.ts',
+    'src/store/promotions.ts', 'src/store/backfill.ts', 'src/storage/persist.ts',
   ], { stdio: 'inherit' });
   if (compile.status !== 0) process.exitCode = compile.status ?? 1;
   else {
