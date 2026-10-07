@@ -4,6 +4,7 @@ import { ATTRIBUTES, EDGE_BY_ID, SKILL_BY_ID } from '../data';
 import { useStore } from '../store/store';
 import { replayPromotions, type PromotionResult } from '../store/promotions';
 import { autoBackfillPromotion } from '../store/backfill';
+import { characterPointTotalsFor } from '../store/selectors';
 import type { AttributeId, Character, PromotionAllocation } from '../types';
 import { Badge, Button, Input, Modal, Select, Toggle } from '../ui';
 
@@ -108,6 +109,7 @@ function PromotionEditor(props: {
   result: PromotionResult;
   onChange: (allocations: PromotionAllocation[]) => void;
   onAutoBackfill: () => void;
+  canAutoBackfill: boolean;
   backfillError?: string;
 }) {
   const { state } = useStore();
@@ -159,8 +161,10 @@ function PromotionEditor(props: {
         <Show when={!props.result.active}><Badge variant="ghost">Неактивно</Badge></Show>
       </div>
       <div class="flex flex-col gap-2">
-        <Button size="xs" variant="ghost" class="self-start" disabled={!props.result.active || props.result.allocations.length > 0}
-          onClick={props.onAutoBackfill}>Автозаполнить</Button>
+        <Show when={props.canAutoBackfill}>
+          <Button size="xs" variant="ghost" class="self-start"
+            onClick={props.onAutoBackfill}>Автозаполнить</Button>
+        </Show>
         <Select<AllocationMode> ariaLabel="Распределение" options={MODES} value={mode()}
           onChange={(value) => props.onChange(initialAllocation(value || 'empty'))} />
         <Show when={mode() === 'attribute'}>
@@ -216,6 +220,12 @@ export function PromotionsModal(props: { open: boolean; promotionKey?: string; o
     ? row.key === props.promotionKey
     : row.active || showInactive()).map((row) => row.key));
   const inactiveCount = () => results().rows.filter((row) => !row.active).length;
+  const backfillCandidates = createMemo(() => {
+    if (!props.open || characterPointTotalsFor(draft(), state.settings.freeSkillPoints, results().edgeSlots).free >= 0) {
+      return new Map<string, Character | null>();
+    }
+    return new Map(visibleKeys().map((key) => [key, autoBackfillPromotion(draft(), state.settings, key)] as const));
+  });
   const baselineChanges = createMemo(() => {
     const changes: string[] = [];
     for (const { id, ru } of ATTRIBUTES) {
@@ -235,7 +245,7 @@ export function PromotionsModal(props: { open: boolean; promotionKey?: string; o
     return changes;
   });
   const backfill = (key: string) => {
-    const candidate = autoBackfillPromotion(draft(), state.settings, key);
+    const candidate = backfillCandidates().get(key);
     if (!candidate) {
       setBackfillErrors((current) => ({ ...current, [key]: 'Не удалось перенести 2 очка без изменения текущих значений или других повышений.' }));
       return;
@@ -272,7 +282,9 @@ export function PromotionsModal(props: { open: boolean; promotionKey?: string; o
       <Show when={confirming()} fallback={
         <div class="flex flex-col gap-3">
           <p class="text-xs leading-relaxed opacity-70">Повышения применяются по порядку к значениям при создании. Красные поля сохраняются, но не меняют персонажа. Новые навыки стоят 2 очка; повышение навыка — 1 очко ниже параметра, иначе 2.</p>
-          <p class="text-xs leading-relaxed opacity-70">Автозаполнение переносит очки из исходных значений в пустое повышение, сохраняя текущие значения. Изменения сохраняются только после подтверждения.</p>
+          <Show when={[...backfillCandidates().values()].some(Boolean)}>
+            <p class="text-xs leading-relaxed opacity-70">Автозаполнение исправляет перерасход очков при создании, сохраняя текущие значения. Изменения сохраняются только после подтверждения.</p>
+          </Show>
           <Show when={!props.promotionKey && inactiveCount() > 0}>
             <Toggle label={`Показать неактивные (${inactiveCount()})`} checked={showInactive()} onChange={setShowInactive} />
           </Show>
@@ -281,6 +293,7 @@ export function PromotionsModal(props: { open: boolean; promotionKey?: string; o
               result={results().rows.find((row) => row.key === key)!}
               onChange={(allocations) => changeAllocation(key, allocations)}
               onAutoBackfill={() => backfill(key)}
+              canAutoBackfill={backfillCandidates().get(key) != null}
               backfillError={backfillErrors()[key]}
             />}</For>
           </Show>

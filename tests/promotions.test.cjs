@@ -6,7 +6,7 @@ const { replayPromotions, promotionRows, VETERAN_EDGE_ID, promotionCount, edgeRe
 const { defaultCharacter, defaultSettings } = compiled('storage/defaults.js');
 const { characterPointTotals, edgeCap, edgeCount } = compiled('store/selectors.js');
 const { BASE_SKILL_IDS, HINDRANCE_BY_ID, SKILL_BY_ID } = compiled('data/index.js');
-const { exportCharacterJson, importCharacterJson, loadCharacter, saveCharacter } = compiled('storage/persist.js');
+const { exportCharacterJson, importCharacterJson, loadCharacter, saveCharacter, loadSettings } = compiled('storage/persist.js');
 
 const ridingId = [...SKILL_BY_ID.values()].find((skill) => /Верховая/i.test(skill.ru)).id;
 const ridingAttribute = SKILL_BY_ID.get(ridingId).linkedAttribute;
@@ -14,6 +14,24 @@ const upgrade = (skillId, points = 2) => ({ kind: 'skill', skillId, points });
 const learn = (skillId) => ({ kind: 'learnSkill', skillId, points: 2 });
 const attribute = (attributeId) => ({ kind: 'attribute', attributeId, points: 2 });
 const character = () => structuredClone(defaultCharacter);
+
+test('the fourth-promotion bonus defaults on while saved opt-outs are preserved', () => {
+  const storage = new Map();
+  global.localStorage = {
+    getItem: (key) => storage.get(key) ?? null,
+    setItem: (key, value) => storage.set(key, value),
+  };
+  assert.equal(defaultSettings.doubleEveryFourthPromotion, true);
+  assert.equal(loadSettings().doubleEveryFourthPromotion, true);
+  storage.set('swade:settings', JSON.stringify({ freeSkillPoints: 2 }));
+  assert.equal(loadSettings().doubleEveryFourthPromotion, true);
+  storage.set('swade:settings', JSON.stringify({ doubleEveryFourthPromotion: false }));
+  assert.equal(loadSettings().doubleEveryFourthPromotion, false);
+  const c = character();
+  c.advancesUsed = 4;
+  assert.equal(replayPromotions(c, defaultSettings).rows.find((row) => row.key === 'earned-4-bonus').active, true);
+});
+
 function progressed(allocations, earned = 1) {
   const c = character();
   c.advancesUsed = earned;
@@ -91,7 +109,7 @@ test('fourth-promotion bonus changes effects without changing count or erasing c
   assert.equal(on.rows.filter((row) => row.active).length, 6);
   assert.equal(on.character.attributes.spirit, 'd6');
   assert.equal(on.character.advancesUsed, 5);
-  const off = replayPromotions(c, defaultSettings);
+  const off = replayPromotions(c, { ...defaultSettings, doubleEveryFourthPromotion: false });
   assert.equal(off.character.attributes.spirit, 'd4');
   assert.equal(off.rows.find((row) => row.origin === 'bonus').status, 'inactive');
   assert.equal(replayPromotions(c, enabled).character.attributes.spirit, 'd6');
@@ -323,7 +341,7 @@ test('disabling a bonus revalidates later skill allocations', () => {
   const active = replayPromotions(c, enabled);
   assert.equal(active.rows.find((row) => row.key === 'earned-5').status, 'applied');
   assert.equal(active.character.skills[ridingId], 'd6');
-  const disabled = replayPromotions(c, defaultSettings);
+  const disabled = replayPromotions(c, { ...defaultSettings, doubleEveryFourthPromotion: false });
   assert.equal(disabled.rows.find((row) => row.key === 'earned-5').status, 'invalid');
   assert.equal(disabled.character.skills[ridingId], 'd4');
   assert.equal(disabled.character.skills.atletika, 'd4');
@@ -449,7 +467,7 @@ test('bonus and veteran edge slots follow active promotion fields without changi
     'earned-4-bonus': [{ kind: 'edgeSlot', points: 2 }],
     'veteran-1': [{ kind: 'edgeSlot', points: 2 }] }, 4);
   c.edges = [{ edgeId: VETERAN_EDGE_ID }];
-  const normal = replayPromotions(c, defaultSettings);
+  const normal = replayPromotions(c, { ...defaultSettings, doubleEveryFourthPromotion: false });
   const doubled = replayPromotions(c, { ...defaultSettings, doubleEveryFourthPromotion: true });
   assert.equal(normal.edgeSlots, 2);
   assert.equal(doubled.edgeSlots, 3);

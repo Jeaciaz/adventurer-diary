@@ -3,7 +3,7 @@ import type { AppSettings, Character } from '../types';
 export const defaultSettings: AppSettings = {
   deadlandsEnabled: true,
   freeSkillPoints: 0,
-  doubleEveryFourthPromotion: false,
+  doubleEveryFourthPromotion: true,
 };
 
 export const defaultCharacter: Character = {

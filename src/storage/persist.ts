@@ -258,7 +258,7 @@ function mergeSettings(value: unknown): AppSettings {
   return {
     deadlandsEnabled: booleanField(value, 'deadlandsEnabled', defaultSettings.deadlandsEnabled),
     freeSkillPoints: numberField(value, 'freeSkillPoints', defaultSettings.freeSkillPoints),
-    doubleEveryFourthPromotion: booleanField(value, 'doubleEveryFourthPromotion', false),
+    doubleEveryFourthPromotion: booleanField(value, 'doubleEveryFourthPromotion', defaultSettings.doubleEveryFourthPromotion),
   };
 }
 

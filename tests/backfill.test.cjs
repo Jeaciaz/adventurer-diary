@@ -4,7 +4,7 @@ const { join } = require('node:path');
 const compiled = (file) => require(join(process.env.SWADE_TEST_BUILD, file));
 const { autoBackfillPromotion } = compiled('store/backfill.js');
 const { replayPromotions } = compiled('store/promotions.js');
-const { edgeCap, edgeCount } = compiled('store/selectors.js');
+const { characterPointTotalsFor, edgeCap, edgeCount } = compiled('store/selectors.js');
 const { defaultCharacter, defaultSettings } = compiled('storage/defaults.js');
 
 // Mock existing characters: their current dice were recorded directly as creation values.
@@ -13,6 +13,10 @@ function mockCharacter() {
   c.creationLocked = true;
   c.advancesUsed = 2;
   c.promotions.legacyBaseline = true;
+  // Fill the normal creation skill allowance; upgraded dice then create overspending.
+  c.customSkills = Array.from({ length: 12 }, (_, index) => ({
+    id: `base-skill-${index}`, name: `Base skill ${index}`, linkedAttribute: 'agility', die: 'd4',
+  }));
   return c;
 }
 
@@ -30,6 +34,10 @@ function backfillSafely(c, key = 'earned-1', settings = defaultSettings) {
   assert.deepEqual(after.character.customEdges, before.character.customEdges);
   assert.equal(after.character.advancesUsed, before.character.advancesUsed);
   assert.equal(after.rows.find((row) => row.key === key).status, 'applied');
+  const beforeTotals = characterPointTotalsFor(c, settings.freeSkillPoints, before.edgeSlots);
+  const afterTotals = characterPointTotalsFor(candidate, settings.freeSkillPoints, after.edgeSlots);
+  assert.ok(beforeTotals.free < 0, 'only an over-budget character needs backfilling');
+  assert.ok(afterTotals.free > beforeTotals.free, 'each backfill must reduce overspending');
   for (const row of before.rows.filter((row) => row.key !== key)) {
     assert.equal(after.rows.find((item) => item.key === row.key).status, row.status);
     assert.deepEqual(candidate.promotions.allocations[row.key], c.promotions.allocations[row.key]);
@@ -100,9 +108,9 @@ test('custom skills participate in split and single-skill backfills', () => {
   const c = mockCharacter();
   c.attributes.agility = 'd8';
   c.skills.atletika = 'd6';
-  c.customSkills = [{ id: 'craft', name: 'Craft', linkedAttribute: 'agility', die: 'd6' }];
+  c.customSkills.push({ id: 'craft', name: 'Craft', linkedAttribute: 'agility', die: 'd6' });
   const split = backfillSafely(c);
-  assert.equal(split.customSkills[0].die, 'd4');
+  assert.equal(split.customSkills.find((skill) => skill.id === 'craft').die, 'd4');
   assert.ok(split.promotions.allocations['earned-1'].some((item) => item.skillId === 'craft' && item.points === 1));
   c.attributes.agility = 'd4';
   c.skills.atletika = 'd4';
@@ -155,7 +163,52 @@ test('bonus backfills increase capacity without increasing the promotion count',
   const settings = { ...defaultSettings, doubleEveryFourthPromotion: true };
   const result = backfillSafely(c, 'earned-4-bonus', settings);
   assert.equal(replayPromotions(result, settings).character.advancesUsed, 4);
-  assert.equal(autoBackfillPromotion(c, defaultSettings, 'earned-4-bonus'), null);
+  assert.equal(autoBackfillPromotion(c, { ...defaultSettings, doubleEveryFourthPromotion: false }, 'earned-4-bonus'), null);
+});
+
+test('valid creation budgets never backfill raised skills or attributes, including hindrance-funded values', () => {
+  for (const funded of [false, true]) {
+    const c = mockCharacter();
+    c.customSkills = [];
+    c.attributes.agility = 'd8';
+    c.skills.atletika = 'd8';
+    c.skills.vnimanie = 'd6';
+    if (funded) {
+      c.attributes = { agility: 'd8', smarts: 'd6', spirit: 'd6', strength: 'd6', vigor: 'd6' };
+      c.customHindrances = [{ id: 'funding', name: 'Funding', description: '', severity: 'major' }];
+    }
+    assert.equal(characterPointTotalsFor(c).free, 0);
+    const snapshot = structuredClone(c);
+    assert.equal(autoBackfillPromotion(c, defaultSettings, 'earned-1'), null);
+    assert.deepEqual(c, snapshot);
+  }
+});
+
+test('backfilling stops once earlier drafts have resolved the inconsistency', () => {
+  const c = mockCharacter();
+  c.attributes.agility = 'd6';
+  c.attributes.smarts = 'd6';
+  c.skills.atletika = 'd6';
+  c.skills.vnimanie = 'd6';
+  const proposal = backfillSafely(c);
+  assert.equal(characterPointTotalsFor(proposal).free, 0);
+  assert.equal(autoBackfillPromotion(proposal, defaultSettings, 'earned-2'), null);
+});
+
+test('attribute backfills must improve the budget after recalculating linked skill costs', () => {
+  const c = mockCharacter();
+  c.attributes = { agility: 'd8', smarts: 'd12', spirit: 'd4', strength: 'd4', vigor: 'd4' };
+  c.customSkills = [
+    { id: 'first', name: 'First', linkedAttribute: 'smarts', die: 'd12' },
+    { id: 'second', name: 'Second', linkedAttribute: 'smarts', die: 'd12' },
+  ];
+  c.skills.atletika = 'd8';
+  c.skills.vnimanie = 'd10';
+  c.skills.osvedomlionnost = 'd10';
+  c.skills.skrytnost = 'd8';
+  c.skills.ubezhdenie = 'd6';
+  const proposal = backfillSafely(c);
+  assert.notEqual(proposal.promotions.allocations['earned-1'][0].kind, 'attribute');
 });
 
 test('625 mocked dice combinations preserve current values and other promotion validity', () => {

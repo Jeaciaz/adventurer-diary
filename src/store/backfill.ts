@@ -17,6 +17,8 @@ export function autoBackfillPromotion(baseline: Character, settings: AppSettings
   const original = replayPromotions(baseline, settings);
   const row = original.rows.find((item) => item.key === key);
   if (!row?.active || row.allocations.length > 0) return null;
+  const totals = characterPointTotalsFor(baseline, settings.freeSkillPoints, original.edgeSlots);
+  if (totals.free >= 0) return null;
 
   const attempt = (allocations: PromotionAllocation[], lowerBaseline: (candidate: Character) => void): Character | null => {
     const candidate = structuredClone(baseline);
@@ -25,10 +27,10 @@ export function autoBackfillPromotion(baseline: Character, settings: AppSettings
     const result = replayPromotions(candidate, settings);
     if (result.rows.find((item) => item.key === key)?.status !== 'applied') return null;
     if (result.rows.some((item, index) => item.key !== key && item.status !== original.rows[index]?.status)) return null;
+    if (characterPointTotalsFor(candidate, settings.freeSkillPoints, result.edgeSlots).free <= totals.free) return null;
     return sameDice(original.character, result.character) ? candidate : null;
   };
 
-  const totals = characterPointTotalsFor(baseline, settings.freeSkillPoints, original.edgeSlots);
   if (edgeCount(baseline) > totals.edgeLimit) {
     return attempt([{ kind: 'edgeSlot', points: 2 }], () => {});
   }
