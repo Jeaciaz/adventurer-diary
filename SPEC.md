@@ -46,6 +46,7 @@ Bottom nav (mobile) or top tabs (wider).
 
 **Top section — derived stats (manual numbers):**
 - Шаг, Защита, Стойкость, Нагрузка, Размер
+- While creation is locked, the implemented pace, parry, and toughness fields display as one compact row of labeled values with no editing controls. Unlocking restores the number steppers.
 
 **Budget counters (visible):**
 - Параметры: `used / 5` (over-cap pulls from unified pool — see Status)
@@ -62,7 +63,7 @@ For each of 5 attributes (Ловкость, Смекалка, Характер, 
   - Custom skills deletable
   - Visualize cost-multiplier when skill > attr (e.g. badge "×2")
 
-**Creation lock:** when unlocked, attributes, skills, and hindrances edit creation values. When locked, they show current values and cannot be edited directly. Edges and arcane backgrounds remain fully managed in their tabs; custom edges can be added, edited, and removed while locked. Custom hindrance additions remain available while locked. Lock icons by the name and status toggle explain unlocking via a tooltip. Derived stats, equipment, money, wounds, fatigue, and power point resources remain editable. Attribute and skill creation budgets use the baseline; edge capacity includes active promotion credits.
+**Creation lock:** when unlocked, attributes, skills, and hindrances edit creation values. When locked, they show current values and cannot be edited directly; derived stats (pace, parry, toughness) and the arcane background selector are also locked. Edges remain fully managed in their tab; custom edges can be added, edited, and removed while locked. Custom hindrance additions remain available while locked, but custom hindrances never grant creation points. Lock icons by the name and status toggle explain unlocking via a tooltip. Equipment, money, wounds, fatigue, power point resources, and the extra creation skill-point rule override remain editable. Attribute and skill creation budgets use the baseline; edge capacity includes active promotion credits.
 
 **Validation:** soft warn (allow over-spend, badge in red). Warnings do not prevent locking.
 
@@ -83,7 +84,7 @@ Fields:
 
 ```
 freePoints =
-    minorHindrances × 1 + majorHindrances × 2
+    officialMinorHindrances × 1 + officialMajorHindrances × 2
   − max(0, skillPointsSpent − skillCap) × 1
   − max(0, attrPointsSpent − 5)         × 2
   − max(0, countedEdges − baseEdgeLimit) × 2
@@ -107,7 +108,7 @@ An empty active field shows an auto-backfill button only when a safe proposal ca
 
 **Ветеран Дикого Запада:** choosing `veteran-o-the-weird-west` in the creation baseline automatically adds four ordinary starting fields and four promotions toward rank. Starting #4 receives no bonus. Earned promotions begin at total #5; the first possible bonus is total #8. Removing the creation edge disables its four fields while retaining their selections. The edge cannot be acquired through promotion fields.
 
-The book's hindrance-removal promotion option remains out of scope. Powers may be selected within slots earned through the current arcane background and Новые силы; reducing available slots retains existing selections with a warning.
+The book's hindrance-removal promotion option remains out of scope. Official powers may be selected within slots earned through the current arcane background and Новые силы; opted-in custom powers consume those same slots. Reducing available slots or enabling a custom power's slot flag beyond capacity retains existing selections with a warning. Custom powers remain addable and editable while locked.
 
 ---
 
@@ -128,6 +129,8 @@ Requirement display: prereq (Rank, attr, skill, other edge) shown as chips. Warn
 ## Tab 4: Изъяны (Hindrances)
 
 **Counter:** hindrance points earned (`minor + major × 2`, soft cap 4 — warn over). No conversion UI; earned points feed unified pool directly (see Status).
+
+Only official hindrances grant points. Custom hindrances are marked «Без очков» and never affect the creation budget, regardless of the creation lock.
 
 Two sections: **Доступные** + **Выбранные** (same UX as Edges). Severity (мелкий/крупный) selector when hindrance has both options.
 
@@ -155,6 +158,7 @@ Each item drawer: full stats (cost, weight, AP, range, RoF, min str, armor, desc
 
 **Header:**
 - **Мистический дар** (Arcane Background) selector — when DL toggle is OFF, shows the 5 core ABs; when ON, shows only the 6 DL ABs
+  - While creation is locked, replaced with a labeled, full-contrast text value. Unlocking restores the selector.
 - **Пункты силы (ПС)** — number input (manual)
 - **Фильтр по дару** — toggle (default ON when an AB is selected; when ON, available list filters to only powers in that AB's allowed list — see DL AB power lists below). Toggling OFF reveals all powers.
 
@@ -167,6 +171,8 @@ Two sections (in order):
   - Warn (don't block) if power not in selected AB's allowed list and "Фильтр по дару" is ON.
 
 **Pinning:** each selected power has a `pinned: boolean` flag toggled inline (or from drawer). Pinned powers sort to the top of **Выбранные** for quick play-time access. No separate section.
+
+**Custom powers:** addable, editable, and removable while creation is locked. Each custom row has an inline edit button; the details drawer also opens the editor. The editor includes «Учитывать в лимите сил»: OFF by default (including older saved powers), ON consumes one power slot. Selected custom powers show «Бесплатно» or «В лимите». This flag persists through reload and export/import; the slot counter, overflow warning, and official-power add controls count opted-in custom powers.
 
 **AB → power list mapping:** each Deadlands Arcane Background restricts power access to a curated subset (per Deadlands rulebook, p.51-77). Extracted into `arcane-backgrounds.json` as `allowedPowers: string[]` (referencing power IDs). Base SWADE ABs default to allowing all powers (no restriction) unless the rulebook specifies otherwise.
 

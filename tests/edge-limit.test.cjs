@@ -11,9 +11,9 @@ function character() {
   const c = structuredClone(defaultCharacter);
   c.creationLocked = true;
   c.attributes = { agility: 'd6', smarts: 'd6', spirit: 'd6', strength: 'd6', vigor: 'd6' };
-  c.customHindrances = [
-    { id: 'h1', name: 'First', description: '', severity: 'major' },
-    { id: 'h2', name: 'Second', description: '', severity: 'major' },
+  c.hindrances = [
+    { hindranceId: 'geroizm', severity: 'major' },
+    { hindranceId: 'vrag', severity: 'major' },
   ];
   return c;
 }
@@ -72,7 +72,7 @@ test('attribute and skill costs share the same hindrance pool', () => {
   fillSkillPool(c, 1);
   assert.equal(totals(c).edgeLimit, 2);
   assert.equal(totals(c).free, 1);
-  c.customHindrances = [];
+  c.hindrances = [];
   assert.equal(totals(c).edgeLimit, 2);
   assert.equal(totals(c).free, -3);
 });

@@ -175,7 +175,7 @@ test('valid creation budgets never backfill raised skills or attributes, includi
     c.skills.vnimanie = 'd6';
     if (funded) {
       c.attributes = { agility: 'd8', smarts: 'd6', spirit: 'd6', strength: 'd6', vigor: 'd6' };
-      c.customHindrances = [{ id: 'funding', name: 'Funding', description: '', severity: 'major' }];
+      c.hindrances = [{ hindranceId: 'geroizm', severity: 'major' }];
     }
     assert.equal(characterPointTotalsFor(c).free, 0);
     const snapshot = structuredClone(c);

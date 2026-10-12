@@ -98,6 +98,7 @@ export interface CustomPower {
   attackEffect?: string;
   shortDescription?: string;
   fullDescription?: string;
+  countsTowardLimit?: boolean;
 }
 
 export type WeaponCategory = 'melee' | 'ranged' | 'ammo';

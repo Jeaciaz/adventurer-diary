@@ -28,7 +28,7 @@ import {
   saveSettings,
 } from '../storage/persist';
 import { defaultCharacter } from '../storage/defaults';
-import { ARCANE_BACKGROUND_BY_ID } from '../data';
+import { powerCount, powerSlots } from './selectors';
 import { promotionCount, replayPromotions, veteranPromotions } from './promotions';
 import { createCharacterPointTotalsMemo } from './pointTotals';
 
@@ -174,6 +174,7 @@ function makeActions(set: SetStoreFunction<StoreShape>, state: StoreShape, curre
       set('character', 'money', money);
     },
     setArcaneBackground(id: string | null) {
+      if (state.character.creationLocked) return;
       set('character', 'arcaneBackgroundId', id);
     },
     setPowerPoints(pp: number) {
@@ -183,10 +184,7 @@ function makeActions(set: SetStoreFunction<StoreShape>, state: StoreShape, curre
       if (state.character.powers.some((power) => power.powerId === p.powerId)) return;
       if (state.character.creationLocked) {
         const c = currentCharacter();
-        const ab = ARCANE_BACKGROUND_BY_ID.get(c.arcaneBackgroundId ?? '');
-        const edge = c.edges.find((item) => item.edgeId === 'novye-sily');
-        const copies = edge ? Math.max(1, edge.count ?? 1) : 0;
-        if (c.powers.length >= (ab?.startingPowers ?? 0) + copies * 2) return;
+        if (powerCount(c) >= powerSlots(c)) return;
       }
       set('character', 'powers', (xs) => [...xs, p]);
     },
@@ -238,6 +236,7 @@ function makeActions(set: SetStoreFunction<StoreShape>, state: StoreShape, curre
       set('character', 'promotions', 'legacyBaseline', false);
     },
     setDerived(field: keyof Character['derivedStats'], value: number) {
+      if (state.character.creationLocked) return;
       set('character', 'derivedStats', field, value);
     },
     setDeadlandsEnabled(enabled: boolean) {

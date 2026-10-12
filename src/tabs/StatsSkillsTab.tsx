@@ -224,27 +224,35 @@ function AddCustomSkillButton(props: { attrId: AttributeId; attrRu: string }): J
 function DerivedStatsSection(): JSX.Element {
   const { state, actions } = useStore();
   const ds = (): typeof state.character.derivedStats => state.character.derivedStats;
+  const stats = [
+    { field: 'pace', label: 'Шаг' },
+    { field: 'parry', label: 'Защита' },
+    { field: 'toughness', label: 'Стойкость' },
+  ] as const;
   return (
-    <Card class="flex flex-wrap items-end gap-3">
-      <div class="basis-full text-xs uppercase tracking-wide opacity-60">Показатели</div>
-      <NumberStepper
-        label="Шаг"
-        value={ds().pace}
-        onChange={(v) => actions.setDerived('pace', v)}
-        min={0}
-      />
-      <NumberStepper
-        label="Защита"
-        value={ds().parry}
-        onChange={(v) => actions.setDerived('parry', v)}
-        min={0}
-      />
-      <NumberStepper
-        label="Стойкость"
-        value={ds().toughness}
-        onChange={(v) => actions.setDerived('toughness', v)}
-        min={0}
-      />
+    <Card>
+      <div class="mb-3 text-xs uppercase tracking-wide opacity-60">Показатели</div>
+      <Show when={state.character.creationLocked} fallback={
+        <div class="flex flex-wrap items-end gap-3">
+          <For each={stats}>{(stat) => (
+            <NumberStepper
+              label={stat.label}
+              value={ds()[stat.field]}
+              onChange={(value) => actions.setDerived(stat.field, value)}
+              min={0}
+            />
+          )}</For>
+        </div>
+      }>
+        <dl class="grid grid-cols-3 divide-x divide-base-300">
+          <For each={stats}>{(stat) => (
+            <div class="min-w-0 px-2 text-center">
+              <dt class="text-xs opacity-70">{stat.label}</dt>
+              <dd class="mt-1 text-3xl font-semibold tabular-nums text-primary">{ds()[stat.field]}</dd>
+            </div>
+          )}</For>
+        </dl>
+      </Show>
     </Card>
   );
 }

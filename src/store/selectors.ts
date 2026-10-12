@@ -1,6 +1,6 @@
 import type { Character, CustomSkill, DieStep, DieStepOrNone, Hindrance, Rank } from '../types';
 import { DIE_STEPS, RANK_THRESHOLDS } from '../types';
-import { BASE_SKILL_IDS, HINDRANCE_BY_ID, SKILL_BY_ID } from '../data';
+import { ARCANE_BACKGROUND_BY_ID, BASE_SKILL_IDS, HINDRANCE_BY_ID, SKILL_BY_ID } from '../data';
 
 export function dieIndex(die: DieStepOrNone): number {
   if (die == null) return -1;
@@ -86,10 +86,7 @@ export function hindrancePointsEarned(
   hindranceMap: Map<string, Hindrance>,
 ): { minor: number; major: number; total: number } {
   void hindranceMap; // future use for validation
-  const severities = [
-    ...c.hindrances.map((h) => h.severity),
-    ...c.customHindrances.map((h) => h.severity),
-  ];
+  const severities = c.hindrances.map((h) => h.severity);
   const minor = severities.filter((s) => s === 'minor').length;
   const major = severities.filter((s) => s === 'major').length * 2;
   return { minor, major, total: minor + major };
@@ -116,6 +113,17 @@ export function edgeCap(promotionSlots = 0): number {
 export function edgeCount(c: Character): number {
   return c.edges.reduce((total, edge) => total + (edge.edgeId === 'misticheskii-dar' ? 0 : Math.max(1, edge.count ?? 1)),
     c.customEdges.filter((edge) => edge.countsTowardLimit === true).length);
+}
+
+export function powerCount(c: Character): number {
+  return c.powers.length + c.customPowers.filter((power) => power.countsTowardLimit === true).length;
+}
+
+export function powerSlots(c: Character): number {
+  const background = ARCANE_BACKGROUND_BY_ID.get(c.arcaneBackgroundId ?? '');
+  const edge = c.edges.find((item) => item.edgeId === 'novye-sily');
+  const copies = edge ? Math.max(1, edge.count ?? 1) : 0;
+  return (background?.startingPowers ?? 0) + copies * 2;
 }
 
 export function characterPointTotals(args: {

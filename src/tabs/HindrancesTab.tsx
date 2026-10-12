@@ -114,6 +114,7 @@ export function HindrancesTab(): JSX.Element {
                     <div class="flex items-center gap-2 text-sm font-medium">
                       <span>{h.name}</span>
                       <Badge variant="ghost">свой</Badge>
+                      <Badge variant="ghost">Без очков</Badge>
                     </div>
                     <Show when={h.description}>
                       {(description) => (
@@ -278,6 +279,7 @@ export function HindrancesTab(): JSX.Element {
               onChange={setCustomSeverity}
             />
           </div>
+          <p class="text-xs opacity-70">Свои изъяны не дают очков при создании персонажа.</p>
           <Button
             variant="primary"
             disabled={customName().trim() === ''}

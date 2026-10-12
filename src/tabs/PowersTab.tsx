@@ -13,7 +13,7 @@ import {
 } from 'lucide-solid';
 import { useStore } from '../store/store';
 import { ARCANE_BACKGROUNDS, ARCANE_BACKGROUND_BY_ID, POWERS, POWER_BY_ID } from '../data';
-import { rankFromAdvances } from '../store/selectors';
+import { powerCount, powerSlots, rankFromAdvances } from '../store/selectors';
 import { CustomPowerDetails, PowerDetails } from '../components/PowerDetails';
 import { PowerIcon } from '../components/PowerIcon';
 import {
@@ -38,7 +38,6 @@ const RANK_RU: Record<Rank, string> = {
 };
 
 const RANK_ORDER: Rank[] = ['novice', 'seasoned', 'veteran', 'heroic', 'legendary'];
-const NEW_POWERS_EDGE_ID = 'novye-sily';
 const ATTACK_POWER_SORT: Record<string, number> = {
   banish: 0,
   izgnanie: 0,
@@ -68,6 +67,7 @@ interface CustomPowerDraft {
   attackEffect: string;
   shortDescription: string;
   fullDescription: string;
+  countsTowardLimit: boolean;
 }
 
 const EMPTY_CUSTOM_POWER_DRAFT: CustomPowerDraft = {
@@ -78,6 +78,7 @@ const EMPTY_CUSTOM_POWER_DRAFT: CustomPowerDraft = {
   attackEffect: '',
   shortDescription: '',
   fullDescription: '',
+  countsTowardLimit: false,
 };
 
 function rankLeq(a: Rank, b: Rank): boolean {
@@ -193,16 +194,6 @@ function compareLearnedPowers(
     || learnedPowerName(a).localeCompare(learnedPowerName(b), 'ru');
 }
 
-function newPowersEdgeCount(character: Character): number {
-  const edge = character.edges.find((item) => item.edgeId === NEW_POWERS_EDGE_ID);
-  if (edge == null) return 0;
-  return Math.max(1, edge.count ?? 1);
-}
-
-function availablePowerSlots(character: Character, background: ArcaneBackground | null): number {
-  return (background?.startingPowers ?? 0) + newPowersEdgeCount(character) * 2;
-}
-
 function makeCustomPowerId(): string {
   const suffix = globalThis.crypto?.randomUUID?.() ?? String(Date.now());
   return `custom-power-${suffix}`;
@@ -223,6 +214,7 @@ function customPowerDraft(power?: CustomPower): CustomPowerDraft {
     attackEffect,
     shortDescription,
     fullDescription,
+    countsTowardLimit: power.countsTowardLimit ?? false,
   };
 }
 
@@ -247,6 +239,7 @@ function customPowerFromDraft(id: string, draft: CustomPowerDraft): CustomPower 
     attackEffect: optionalText(draft.attackEffect),
     shortDescription: optionalText(draft.shortDescription),
     fullDescription: optionalText(draft.fullDescription),
+    countsTowardLimit: draft.countsTowardLimit,
   };
 }
 
@@ -277,10 +270,8 @@ export function PowersTab(): JSX.Element {
     ].filter((group) => group.items.length > 0);
   });
   const learnedPowers = createMemo(() => learnedPowerEntries(character()));
-  const officialPowerCount = createMemo(() =>
-    learnedPowers().filter((entry) => entry.kind === 'official').length,
-  );
-  const powerSlots = createMemo(() => availablePowerSlots(character(), background()));
+  const countedPowers = createMemo(() => powerCount(character()));
+  const slotLimit = createMemo(() => powerSlots(character()));
   const drawerOfficialPower = createMemo(() => {
     const target = drawerTarget();
     return target?.kind === 'official' ? POWER_BY_ID.get(target.id) ?? null : null;
@@ -350,16 +341,27 @@ export function PowersTab(): JSX.Element {
     <div class="flex flex-col gap-4">
       <Card>
         <div class="flex flex-col gap-3">
-          <Select
-            label="Мистический дар"
-            options={ARCANE_BACKGROUNDS.map((item) => ({
-              value: item.id,
-              label: arcaneBackgroundLabel(item),
-            }))}
-            value={arcaneBackgroundValue(character())}
-            onChange={(value) => actions.setArcaneBackground(arcaneBackgroundFromSelect(value))}
-            placeholder="— нет —"
-          />
+          <Show when={!state.character.creationLocked} fallback={
+            <dl aria-label="Мистический дар">
+              <dt class="label-text mb-1 text-sm">Мистический дар</dt>
+              <dd class="text-lg font-semibold text-base-content">
+                <Show when={background()} fallback="— нет —">
+                  {(item) => arcaneBackgroundLabel(item())}
+                </Show>
+              </dd>
+            </dl>
+          }>
+            <Select
+              label="Мистический дар"
+              options={ARCANE_BACKGROUNDS.map((item) => ({
+                value: item.id,
+                label: arcaneBackgroundLabel(item),
+              }))}
+              value={arcaneBackgroundValue(character())}
+              onChange={(value) => actions.setArcaneBackground(arcaneBackgroundFromSelect(value))}
+              placeholder="— нет —"
+            />
+          </Show>
           <NumberStepper
             label="Пункты силы"
             value={character().powerPoints}
@@ -382,10 +384,10 @@ export function PowersTab(): JSX.Element {
             Изученные силы ({learnedPowers().length})
           </div>
           <Badge variant="neutral" outline>
-            По дару: {officialPowerCount()}/{powerSlots()}
+            По дару: {countedPowers()}/{slotLimit()}
           </Badge>
         </div>
-        <Show when={officialPowerCount() > powerSlots()}>
+        <Show when={countedPowers() > slotLimit()}>
           <p class="mt-2 text-xs text-warning">Выбрано больше сил, чем доступно. Проверьте повышения и мистический дар.</p>
         </Show>
         <Show
@@ -400,6 +402,7 @@ export function PowersTab(): JSX.Element {
                   pinned={isPinnedPower(character(), entry.id)}
                   onOpen={() => setDrawerTarget({ kind: entry.kind, id: entry.id })}
                   onTogglePinned={() => actions.togglePinnedPower(entry.id)}
+                  onEdit={entry.kind === 'custom' ? () => openEditEditor(entry.power) : undefined}
                   onRemove={() => {
                     if (entry.kind === 'official') actions.removePower(entry.id);
                     else deleteCustomPower(entry.power);
@@ -448,7 +451,7 @@ export function PowersTab(): JSX.Element {
                             variant="ghost"
                             square
                             aria-label="Изучить"
-                            disabled={state.character.creationLocked && officialPowerCount() >= powerSlots()}
+                            disabled={state.character.creationLocked && countedPowers() >= slotLimit()}
                             onClick={() => actions.addPower({ powerId: power.id })}
                           >
                             <Plus size={14} />
@@ -509,7 +512,7 @@ export function PowersTab(): JSX.Element {
                 >
                   <Button
                     variant="primary"
-                    disabled={state.character.creationLocked && officialPowerCount() >= powerSlots()}
+                    disabled={state.character.creationLocked && countedPowers() >= slotLimit()}
                     onClick={() => {
                       actions.addPower({ powerId: power().id });
                       setDrawerTarget(null);
@@ -561,10 +564,13 @@ function LearnedPowerRow(props: {
   pinned: boolean;
   onOpen: () => void;
   onTogglePinned: () => void;
+  onEdit?: () => void;
   onRemove: () => void;
 }): JSX.Element {
   const official = (): Power | null =>
     props.entry.kind === 'official' ? props.entry.power : null;
+  const custom = (): CustomPower | null =>
+    props.entry.kind === 'custom' ? props.entry.power : null;
 
   return (
     <li class="flex items-center justify-between gap-2 rounded-lg border border-base-300 bg-base-100 px-2 py-1">
@@ -573,17 +579,23 @@ function LearnedPowerRow(props: {
         class="flex min-w-0 flex-1 flex-col items-start gap-0.5 text-left"
         onClick={props.onOpen}
       >
-        <div class="flex items-center gap-2 text-sm font-medium">
-          <span>{learnedPowerName(props.entry)}</span>
+        <div class="flex flex-wrap items-center gap-2 text-sm font-medium">
+          <span class="min-w-0 break-words">{learnedPowerName(props.entry)}</span>
           <Show when={official()}>{(power) => <PowerSourceTag power={power()} />}</Show>
-          <Show when={props.entry.kind === 'custom'}>
-            <Badge variant="primary" outline>
-              своё
-            </Badge>
+          <Show when={custom()}>
+            {(power) => <>
+              <Badge variant="primary" outline>своё</Badge>
+              <Badge variant="ghost">{power().countsTowardLimit ? 'В лимите' : 'Бесплатно'}</Badge>
+            </>}
           </Show>
         </div>
         <PowerSubtitle power={props.entry.power} showRank={props.entry.kind === 'official'} />
       </button>
+      <Show when={props.onEdit}>
+        <Button size="xs" variant="ghost" square aria-label="Изменить силу" onClick={props.onEdit}>
+          <Pencil size={14} />
+        </Button>
+      </Show>
       <Button
         size="xs"
         variant="ghost"
@@ -681,7 +693,7 @@ function CustomPowerEditor(props: {
   onSave: () => void;
   valid: boolean;
 }): JSX.Element {
-  const update = (field: keyof CustomPowerDraft, value: string): void => {
+  const update = (field: Exclude<keyof CustomPowerDraft, 'countsTowardLimit'>, value: string): void => {
     props.onChange({ ...props.draft, [field]: value });
   };
 
@@ -731,6 +743,12 @@ function CustomPowerEditor(props: {
         onInput={(value) => update('fullDescription', value)}
         rows={7}
       />
+      <Toggle
+        label="Учитывать в лимите сил"
+        checked={props.draft.countsTowardLimit}
+        onChange={(countsTowardLimit) => props.onChange({ ...props.draft, countsTowardLimit })}
+      />
+      <p class="text-xs opacity-70">Включите, чтобы сила занимала один слот. Выключите для бесплатно полученной силы.</p>
       <div class="sticky bottom-0 z-10 -mx-4 -mb-3 mt-1 border-t border-base-300 bg-base-200/95 px-4 py-3 backdrop-blur">
         <Button class="w-full" variant="primary" disabled={!props.valid} onClick={props.onSave}>
           Сохранить

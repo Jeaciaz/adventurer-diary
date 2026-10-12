@@ -213,6 +213,7 @@ const customPowerSchema = v.object({
   attackEffect: v.optional(v.string()),
   shortDescription: v.optional(v.string()),
   fullDescription: v.optional(v.string()),
+  countsTowardLimit: v.optional(v.boolean()),
 });
 
 export const isCustomPower = guardFromSchema<CustomPower>(customPowerSchema);
